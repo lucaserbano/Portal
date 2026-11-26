@@ -75,6 +75,13 @@ export async function runBackup(env: Env) {
     'User-Agent': 'pyle-backup',
     'X-GitHub-Api-Version': '2022-11-28',
   };
+  // Trava de segurança: nunca gravar dados num repositório público.
+  const repo = await fetch(`https://api.github.com/repos/${env.BACKUP_REPO}`, { headers });
+  if (!repo.ok) return { ok: false, error: `repositório inacessível: ${repo.status}` };
+  if (!((await repo.json()) as { private: boolean }).private) {
+    return { ok: false, error: `${env.BACKUP_REPO} está público — backup cancelado` };
+  }
+
   const base = `https://api.github.com/repos/${env.BACKUP_REPO}/contents/`;
   let written = 0;
   for (const [path, content] of Object.entries(files)) {
