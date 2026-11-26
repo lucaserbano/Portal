@@ -1,0 +1,185 @@
+/* πύλη — sistema visual
+   Estrutura: grid suíço/Bauhaus, filetes de 1px, nada de sombra, gradiente ou canto arredondado.
+   Cor: preto, branco, cinza. Magenta só para ação, estado ativo e alerta. */
+
+:root {
+	--black: #000;
+	--white: #fff;
+	--grey: #808080;
+	--grey-light: #e6e6e6;
+	--accent: #ff006f;
+
+	--sans: 'Helvetica Neue', Helvetica, Arial, system-ui, sans-serif;
+	--mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+
+	--gutter: clamp(16px, 2.4vw, 32px);
+	--rule: 1px solid var(--black);
+	--rule-soft: 1px solid var(--grey-light);
+
+	--t-xs: 11px;
+	--t-sm: 13px;
+	--t-md: 15px;
+	--t-lg: clamp(22px, 2.6vw, 30px);
+	--t-xl: clamp(40px, 7vw, 96px);
+}
+
+*,
+*::before,
+*::after {
+	box-sizing: border-box;
+}
+
+html {
+	-webkit-text-size-adjust: 100%;
+}
+
+body {
+	margin: 0;
+	background: var(--white);
+	color: var(--black);
+	font: 400 var(--t-md) / 1.4 var(--sans);
+	-webkit-font-smoothing: antialiased;
+}
+
+h1,
+h2,
+h3,
+p {
+	margin: 0;
+	font-weight: 400;
+}
+
+a {
+	color: inherit;
+	text-decoration: underline;
+	text-decoration-thickness: 1px;
+	text-underline-offset: 3px;
+}
+a:hover {
+	text-decoration-color: var(--accent);
+	text-decoration-thickness: 2px;
+}
+
+button,
+input,
+textarea,
+select {
+	font: inherit;
+	color: inherit;
+}
+
+:focus-visible {
+	outline: 2px solid var(--accent);
+	outline-offset: 2px;
+}
+
+::selection {
+	background: var(--accent);
+	color: var(--white);
+}
+
+/* ---------- Grid ---------- */
+.page {
+	padding: 0 var(--gutter) calc(var(--gutter) * 3);
+	max-width: 1600px;
+	margin: 0 auto;
+}
+
+.grid {
+	display: grid;
+	grid-template-columns: repeat(12, minmax(0, 1fr));
+	gap: var(--gutter);
+}
+
+/* ---------- Tipografia utilitária ---------- */
+.meta {
+	font: 400 var(--t-xs) / 1.3 var(--mono);
+	letter-spacing: 0.02em;
+	color: var(--grey);
+}
+
+.label {
+	font-size: var(--t-sm);
+}
+
+.title-xl {
+	font-size: var(--t-xl);
+	line-height: 0.95;
+	letter-spacing: -0.03em;
+}
+
+.title-lg {
+	font-size: var(--t-lg);
+	line-height: 1.1;
+	letter-spacing: -0.01em;
+}
+
+/* Sublinhado de destaque, como o marca-texto do Quick, Draw! */
+.mark {
+	background: linear-gradient(transparent 62%, var(--accent) 62%, var(--accent) 88%, transparent 88%);
+}
+
+/* ---------- Componentes base ---------- */
+.box {
+	border: var(--rule);
+	background: var(--white);
+}
+
+.btn {
+	display: inline-flex;
+	align-items: center;
+	gap: 8px;
+	padding: 10px 16px;
+	border: var(--rule);
+	background: var(--white);
+	cursor: pointer;
+	border-radius: 0;
+	font-size: var(--t-sm);
+}
+.btn:hover {
+	background: var(--black);
+	color: var(--white);
+}
+.btn.primary {
+	background: var(--accent);
+	border-color: var(--accent);
+	color: var(--white);
+}
+.btn.primary:hover {
+	background: var(--black);
+	border-color: var(--black);
+}
+.btn:disabled {
+	opacity: 0.4;
+	cursor: default;
+}
+
+.field {
+	width: 100%;
+	padding: 12px 0;
+	border: 0;
+	border-bottom: var(--rule);
+	background: transparent;
+	border-radius: 0;
+	outline: none;
+}
+.field:focus {
+	border-bottom: 2px solid var(--accent);
+	padding-bottom: 11px;
+}
+
+.sr-only {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	overflow: hidden;
+	clip: rect(0 0 0 0);
+	white-space: nowrap;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	* {
+		transition: none !important;
+		animation: none !important;
+	}
+}

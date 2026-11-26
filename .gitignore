@@ -1,0 +1,10 @@
+node_modules
+.DS_Store
+.env
+.env.*
+.dev.vars
+.wrangler
+.svelte-kit
+build
+# notas pessoais de planejamento ficam fora do repositório público
+o-que-quero.md

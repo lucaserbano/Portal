@@ -1,0 +1,22 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "pyle-api",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-11-01",
+  "observability": { "enabled": true },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "pyle-db",
+      "database_id": "4a10b35d-af05-4dbb-8cb2-969f8601d752",
+      "migrations_dir": "migrations"
+    }
+  ],
+  "vars": {
+    "ALLOWED_ORIGINS": "https://lucaserbano.github.io,http://localhost:5173",
+    "BACKUP_REPO": "lucaserbano/pyle-dados"
+  },
+  // Backup diário em .md às 06:00 UTC (03:00 em Brasília)
+  "triggers": { "crons": ["0 6 * * *"] }
+  // Segredos (wrangler secret put): PASSWORD_HASH, GITHUB_TOKEN
+}
