@@ -32,6 +32,13 @@
 	let menuFor = $state<string | null>(null);
 	let confirmArchive = $state(false);
 
+	// Zoom out do quadro (como no Trello): colunas estreitas, só títulos. Lembrado neste aparelho.
+	let compact = $state(localStorage.getItem('pyle.compact') === '1');
+	function toggleCompact() {
+		compact = !compact;
+		localStorage.setItem('pyle.compact', compact ? '1' : '0');
+	}
+
 	const bid = $derived(page.params.id!);
 
 	async function load() {
@@ -185,6 +192,7 @@
 			<span>{plural(totals.total, 'tarefa')}</span>
 			<span>{totals.ok} no prazo</span>
 			<span class:late={totals.late > 0}>{plural(totals.late, 'atrasada')}</span>
+			<button class="link" onclick={toggleCompact} aria-pressed={compact}>{compact ? 'zoom +' : 'zoom −'}</button>
 			<button class="link" onclick={() => (showSettings = !showSettings)} aria-expanded={showSettings}>exibir</button>
 		</div>
 	</section>
@@ -206,7 +214,7 @@
 		</section>
 	{/if}
 
-	<div class="scroller">
+	<div class="scroller" class:compact>
 		<div
 			class="columns"
 			use:dragHandleZone={{ items: columns, flipDurationMs: FLIP, type: 'column', dropTargetStyle: {} }}
@@ -245,7 +253,7 @@
 
 					<div
 						class="tasks"
-						use:dndzone={{ items: col.items, flipDurationMs: FLIP, type: 'task', dropTargetStyle: {} }}
+						use:dndzone={{ items: col.items, flipDurationMs: FLIP, type: 'task', dropTargetStyle: {}, delayTouchStart: 180 }}
 						onconsider={(e) => considerTasks(col, e)}
 						onfinalize={(e) => finalizeTasks(col, e)}
 					>
@@ -494,6 +502,52 @@
 		gap: 8px;
 		margin-top: 10px;
 	}
+	/* Toque longo para arrastar (rolar continua livre) */
+	.slot {
+		-webkit-touch-callout: none;
+		-webkit-user-select: none;
+		user-select: none;
+	}
+
+	/* ---------- Zoom out ---------- */
+	.compact,
+	.compact .columns {
+		gap: 8px;
+	}
+	.compact .col {
+		width: 176px;
+		gap: 4px;
+	}
+	.compact .colname {
+		font-size: var(--t-sm);
+		text-overflow: ellipsis;
+	}
+	.compact .counts span:not(:first-child),
+	.compact .addbtn,
+	.compact .add {
+		display: none;
+	}
+	.compact .tasks {
+		gap: 4px;
+		min-height: 32px;
+	}
+	.compact :global(.card) {
+		padding: 6px 8px;
+		gap: 6px;
+	}
+	.compact :global(.card .title) {
+		font-size: var(--t-sm);
+	}
+	.compact :global(.card .labels),
+	.compact :global(.card .excerpt),
+	.compact :global(.card .foot) {
+		display: none;
+	}
+	.compact :global(.card .check) {
+		width: 14px;
+		height: 14px;
+	}
+
 	.err {
 		color: var(--accent);
 	}
@@ -505,6 +559,12 @@
 		}
 		.col {
 			width: 82vw;
+		}
+		.compact .col {
+			width: 37vw;
+		}
+		.compact .more {
+			padding: 0;
 		}
 	}
 </style>

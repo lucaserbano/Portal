@@ -183,3 +183,15 @@ select {
 		animation: none !important;
 	}
 }
+
+/* iPhone: campos com letra < 16px fazem o Safari dar zoom ao tocar. */
+@media (pointer: coarse) {
+	input:not([type='checkbox']):not(.title):not(.title-lg):not(.big),
+	select,
+	textarea:not(.title) {
+		font-size: 16px !important;
+	}
+	button {
+		touch-action: manipulation;
+	}
+}
