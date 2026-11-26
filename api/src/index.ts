@@ -2,6 +2,7 @@ import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { FAIL_WINDOW_S, MAX_FAILS, SESSION_DAYS, newToken, sha256, verifyPassword } from './auth';
 import { runBackup } from './backup';
+import { boards } from './boards';
 
 export interface Env {
   DB: D1Database;
@@ -19,7 +20,7 @@ app.use('*', (c, next) =>
   cors({
     origin: (origin) => (c.env.ALLOWED_ORIGINS.split(',').includes(origin) ? origin : null),
     allowHeaders: ['Authorization', 'Content-Type'],
-    allowMethods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowMethods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE', 'OPTIONS'],
     maxAge: 86400,
   })(c, next),
 );
@@ -95,6 +96,8 @@ api.get('/boards', async (c) => {
   ).first<{ n: number }>();
   return c.json({ boards: boards.results, inbox: inbox?.n ?? 0 });
 });
+
+api.route('/', boards);
 
 api.post('/backup', async (c) => c.json(await runBackup(c.env)));
 

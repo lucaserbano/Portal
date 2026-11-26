@@ -2,10 +2,20 @@
 	import { resolve } from '$app/paths';
 	import { api } from '#lib/api.ts';
 	import Doodle from '#lib/components/Doodle.svelte';
+	import { plural } from '#lib/model.ts';
 
 	type Board = { id: string; name: string; lists: number; open_tasks: number; late_tasks: number };
 
-	const data = api<{ boards: Board[]; inbox: number }>('/boards');
+	let data = $state(api<{ boards: Board[]; inbox: number }>('/boards'));
+	let newBoard = $state('');
+
+	async function createBoard(e: SubmitEvent) {
+		e.preventDefault();
+		if (!newBoard.trim()) return;
+		await api('/boards', { method: 'POST', body: JSON.stringify({ name: newBoard }) });
+		newBoard = '';
+		data = api<{ boards: Board[]; inbox: number }>('/boards');
+	}
 
 	const today = new Date().toLocaleDateString('pt-BR', {
 		weekday: 'long',
@@ -33,11 +43,15 @@
 				<span class="name">{b.name}</span>
 				<span class="meta counts">
 					<span>{b.lists} cards</span>
-					<span>{b.open_tasks} abertas</span>
-					<span class:late={b.late_tasks > 0}>{b.late_tasks} atrasadas</span>
+					<span>{plural(b.open_tasks, 'aberta')}</span>
+					<span class:late={b.late_tasks > 0}>{plural(b.late_tasks, 'atrasada')}</span>
 				</span>
 			</a>
 		{/each}
+		<form class="box newboard" onsubmit={createBoard}>
+			<input class="field" placeholder="+ novo quadro" bind:value={newBoard} aria-label="Nome do novo quadro" />
+			{#if newBoard.trim()}<button class="btn">criar</button>{/if}
+		</form>
 	</section>
 {:catch err}
 	<p class="err" role="alert">{err.message}</p>
@@ -102,6 +116,19 @@
 	}
 	.box:hover .late {
 		color: var(--accent);
+	}
+	.newboard {
+		min-height: 150px;
+		border-style: dashed;
+		border-color: var(--grey);
+		justify-content: flex-start;
+	}
+	.newboard:hover {
+		background: var(--white);
+		color: var(--black);
+	}
+	.newboard .btn {
+		align-self: flex-start;
 	}
 	.err {
 		color: var(--accent);
