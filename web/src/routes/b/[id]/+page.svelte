@@ -33,6 +33,21 @@
 	let confirmArchive = $state(false);
 
 	// Zoom out do quadro (como no Trello): colunas estreitas, só títulos. Lembrado neste aparelho.
+	// O quadro ocupa a tela até embaixo: dá para rolar para o lado pelo espaço vazio
+	let scrollerEl = $state<HTMLElement>();
+	let fillH = $state(0);
+	function measure() {
+		if (!scrollerEl) return;
+		const top = scrollerEl.getBoundingClientRect().top + window.scrollY;
+		fillH = Math.max(280, window.innerHeight - top);
+	}
+	$effect(() => {
+		scrollerEl;
+		showSettings;
+		compact;
+		measure();
+	});
+
 	let compact = $state(localStorage.getItem('pyle.compact') === '1');
 	function toggleCompact() {
 		compact = !compact;
@@ -105,7 +120,7 @@
 		const title = newTitle.trim();
 		if (!title) return;
 		newTitle = '';
-		await api('/tasks', { method: 'POST', body: JSON.stringify({ title, board_id: bid, list_id: col.id }) });
+		await api('/tasks', { method: 'POST', body: JSON.stringify({ title, board_id: bid, list_id: col.id, at: 'top' }) });
 		await load();
 	}
 
@@ -177,6 +192,8 @@
 	const totals = $derived(counts([...columns.flatMap((c) => c.items), ...loose]));
 </script>
 
+<svelte:window onresize={measure} />
+
 {#if error}
 	<p class="err">{error}</p>
 {:else if board}
@@ -214,7 +231,7 @@
 		</section>
 	{/if}
 
-	<div class="scroller" class:compact>
+	<div class="scroller" class:compact bind:this={scrollerEl} style:min-height="{fillH}px">
 		<div
 			class="columns"
 			use:dragHandleZone={{ items: columns, flipDurationMs: FLIP, type: 'column', dropTargetStyle: {} }}
@@ -251,6 +268,20 @@
 						</div>
 					{/if}
 
+					{#if addingIn === col.id}
+						<form class="add" onsubmit={(e) => addTask(col, e)}>
+							<!-- svelte-ignore a11y_autofocus -->
+							<input class="field" placeholder="título da tarefa" bind:value={newTitle} autofocus
+								onkeydown={(e) => e.key === 'Escape' && (addingIn = null)} />
+							<div class="addrow">
+								<button class="btn primary" disabled={!newTitle.trim()}>adicionar</button>
+								<button type="button" class="link" onclick={() => (addingIn = null)}>cancelar</button>
+							</div>
+						</form>
+					{:else}
+						<button class="addbtn" onclick={() => ((addingIn = col.id), (newTitle = ''))}>+ tarefa</button>
+					{/if}
+
 					<div
 						class="tasks"
 						use:dndzone={{ items: col.items, flipDurationMs: FLIP, type: 'task', dropTargetStyle: {}, delayTouchStart: 180 }}
@@ -270,19 +301,6 @@
 						{/each}
 					</div>
 
-					{#if addingIn === col.id}
-						<form class="add" onsubmit={(e) => addTask(col, e)}>
-							<!-- svelte-ignore a11y_autofocus -->
-							<input class="field" placeholder="título da tarefa" bind:value={newTitle} autofocus
-								onkeydown={(e) => e.key === 'Escape' && (addingIn = null)} />
-							<div class="addrow">
-								<button class="btn primary" disabled={!newTitle.trim()}>adicionar</button>
-								<button type="button" class="link" onclick={() => (addingIn = null)}>cancelar</button>
-							</div>
-						</form>
-					{:else}
-						<button class="addbtn" onclick={() => ((addingIn = col.id), (newTitle = ''))}>+ tarefa</button>
-					{/if}
 				</section>
 			{/each}
 		</div>
@@ -379,7 +397,7 @@
 
 	.scroller {
 		display: flex;
-		align-items: flex-start;
+		align-items: stretch;
 		gap: 12px;
 		overflow-x: auto;
 		padding-bottom: 16px;
@@ -391,15 +409,15 @@
 	}
 	.columns {
 		display: flex;
-		align-items: flex-start;
+		align-items: stretch;
 		gap: 12px;
 	}
 	.col {
 		flex: none;
 		width: 288px;
-		display: grid;
+		display: flex;
+		flex-direction: column;
 		gap: 8px;
-		align-content: start;
 		scroll-snap-align: start;
 		outline: none;
 	}
@@ -454,13 +472,11 @@
 		justify-items: start;
 	}
 	.tasks {
+		flex: 1; /* a área de soltar vai até o fim da tela */
 		display: grid;
 		gap: 6px;
 		min-height: 48px;
 		align-content: start;
-	}
-	.tasks:empty {
-		border: 1px dashed var(--grey-light);
 	}
 	.addbtn {
 		background: none;
@@ -485,6 +501,7 @@
 		font-size: var(--t-sm);
 	}
 	.newcol {
+		align-self: flex-start;
 		border-top: 2px solid var(--grey-light);
 		padding-top: 4px;
 	}

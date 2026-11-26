@@ -137,7 +137,7 @@ boards.delete('/lists/:id', async (c) => {
 
 // ---------- Tarefas ----------
 boards.post('/tasks', async (c) => {
-  const b = await c.req.json<{ title: string; board_id?: string; list_id?: string }>();
+  const b = await c.req.json<{ title: string; board_id?: string; list_id?: string; at?: 'top' | 'bottom' }>();
   if (!b.title?.trim()) return c.json({ error: 'Título obrigatório.' }, 400);
   const tid = id('t');
   const stmts = [
@@ -146,14 +146,15 @@ boards.post('/tasks', async (c) => {
     ),
   ];
   if (b.board_id) {
-    const max = await c.env.DB.prepare(
-      'SELECT COALESCE(MAX(position), 0) AS p FROM task_placements WHERE board_id = ? AND list_id IS ?',
+    const top = b.at === 'top';
+    const edge = await c.env.DB.prepare(
+      `SELECT COALESCE(${top ? 'MIN' : 'MAX'}(position), ${top ? 1 : 0}) AS p FROM task_placements WHERE board_id = ? AND list_id IS ?`,
     )
       .bind(b.board_id, b.list_id ?? null)
       .first<{ p: number }>();
     stmts.push(
       c.env.DB.prepare('INSERT INTO task_placements (id, task_id, board_id, list_id, position) VALUES (?, ?, ?, ?, ?)').bind(
-        id('p'), tid, b.board_id, b.list_id ?? null, (max?.p ?? 0) + 1,
+        id('p'), tid, b.board_id, b.list_id ?? null, (edge?.p ?? 0) + (top ? -1 : 1),
       ),
     );
   }
