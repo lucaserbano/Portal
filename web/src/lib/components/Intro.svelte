@@ -12,9 +12,9 @@
 	const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 	const PINK = [255, 0, 111] as const;
-	const T_ZOOM = 0.72; // fim do zoom da palavra
-	const T_TUNNEL = 1.45; // começa a esmaecer ainda dentro do túnel
-	const T_END = 1.8;
+	const T_ZOOM = 0.85; // fim do zoom da palavra
+	const T_TUNNEL = 1.55; // começa a esmaecer ainda dentro do túnel
+	const T_END = 1.9;
 
 	function finish() {
 		if (fading) return;
@@ -112,24 +112,31 @@
 			if (t < T_ZOOM + 0.2) {
 				const p = Math.min(1, t / T_ZOOM);
 				const base = Math.min(W * 0.5, 420) / tw;
-				const scale = base * Math.exp(Math.pow(p, 2.6) * 5.2); // acelera até encher a tela
+				// começo bem suave (quase parado), depois acelera até encher a tela
+				const ss = (x: number) => x * x * (3 - 2 * x);
+				const scale = base * (0.94 + 0.06 * ss(Math.min(1, p * 2))) * Math.exp(Math.pow(p, 3.2) * 5.6);
 				const dw = tw * scale;
 				const dh = word.height * scale;
 				const dissolve = Math.max(0, (p - 0.6) / 0.4); // 0 → 1: vira linhas
-				const alpha = t < 0.12 ? t / 0.12 : t > T_ZOOM ? Math.max(0, 1 - (t - T_ZOOM) / 0.2) : 1;
+				const alpha = t < 0.32 ? ss(t / 0.32) : t > T_ZOOM ? Math.max(0, 1 - (t - T_ZOOM) / 0.22) : 1;
 				ctx.globalAlpha = alpha;
 				if (dissolve <= 0) {
 					ctx.drawImage(word, cx - dw / 2, cy - dh / 2, dw, dh);
 				} else {
-					// fatias horizontais finas que se afastam do centro (como o N da Netflix virando fitas)
-					const slices = 48;
-					for (let i = 0; i < slices; i++) {
-						const sy = (i / slices) * word.height;
-						const sh = word.height / slices;
-						const gap = 1 - dissolve * 0.75; // fitas ficam mais finas
-						const off = (rnd(i * 3.1 + boil * 0.01) - 0.5) * dissolve * dw * 0.18;
-						const ty = cy - dh / 2 + (i / slices) * dh;
-						ctx.drawImage(word, 0, sy, tw, sh * gap, cx - dw / 2 + off, ty, dw, (dh / slices) * gap);
+					// fitas horizontais finas (como o N da Netflix virando fitas): altura fixa na tela,
+					// só as que aparecem — continuam finas por maior que seja o zoom
+					const STRIP = 5;
+					const top = cy - dh / 2;
+					const y0 = Math.max(0, Math.floor(top / STRIP) * STRIP);
+					const y1 = Math.min(H, top + dh);
+					const thin = 1 - ss(dissolve) * 0.6;
+					for (let y = y0; y < y1; y += STRIP) {
+						const sy = ((y - top) / dh) * word.height;
+						const sh = (STRIP / dh) * word.height;
+						if (sy < 0 || sy + sh > word.height) continue;
+						const q = Math.floor((sy / word.height) * 400); // posição na palavra: deslocamento estável
+						const off = (rnd(q * 3.1) - 0.5) * ss(dissolve) * Math.min(dw, W * 3) * 0.12;
+						ctx.drawImage(word, 0, sy, tw, sh * thin, cx - dw / 2 + off, y, dw, STRIP * thin);
 					}
 				}
 				ctx.globalAlpha = 1;

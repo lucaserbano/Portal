@@ -26,6 +26,7 @@ export interface Env {
   FILE_KEY: string;
   FILES_QUOTA_BYTES: string;
   SITE_URL: string;
+  LOGIN_USER: string;
   ICLOUD_EMAIL?: string;
   ICLOUD_APP_PASSWORD?: string;
   PYLE_CALENDAR?: string;
@@ -61,10 +62,11 @@ app.post('/auth/login', async (c) => {
     return c.json({ error: 'Muitas tentativas. Tente de novo em 15 minutos.' }, 429);
   }
 
-  const { password } = await c.req.json<{ password?: string }>().catch(() => ({ password: undefined }));
-  if (!password || !c.env.PASSWORD_HASH || !(await verifyPassword(password, c.env.PASSWORD_HASH))) {
+  const { username, password } = await c.req.json<{ username?: string; password?: string }>().catch(() => ({ username: undefined, password: undefined }));
+  const userOk = (username ?? '').trim().toLowerCase() === (c.env.LOGIN_USER || 'pyle').toLowerCase();
+  if (!userOk || !password || !c.env.PASSWORD_HASH || !(await verifyPassword(password, c.env.PASSWORD_HASH))) {
     await c.env.DB.prepare('INSERT INTO login_attempts (ip, at) VALUES (?, ?)').bind(ip, now()).run();
-    return c.json({ error: 'Senha incorreta.' }, 401);
+    return c.json({ error: 'Login ou senha incorretos.' }, 401);
   }
 
   const token = newToken();

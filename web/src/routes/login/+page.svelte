@@ -2,17 +2,18 @@
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { api, auth } from '#lib/api.ts';
-	import Doodle from '#lib/components/Doodle.svelte';
 
+	let username = $state('');
 	let password = $state('');
-	// uma foto "vibe" (muda a cada dia); privada: vem com link assinado da API
-	let photo = $state<{ url: string; w: number; h: number } | null>(null);
+	let error = $state('');
+	let busy = $state(false);
+	// a foto da sala de luz em tela cheia (privada: link assinado da API)
+	let photo = $state<{ url: string } | null>(null);
+	let loaded = $state(false);
 	fetch(`${import.meta.env.VITE_API_URL}/public/login-image`)
 		.then((r) => r.json())
 		.then((d) => (photo = d.photo))
 		.catch(() => {});
-	let error = $state('');
-	let busy = $state(false);
 
 	async function submit(e: SubmitEvent) {
 		e.preventDefault();
@@ -21,7 +22,7 @@
 		try {
 			const { token } = await api<{ token: string }>('/auth/login', {
 				method: 'POST',
-				body: JSON.stringify({ password })
+				body: JSON.stringify({ username, password })
 			});
 			auth.set(token);
 			goto(resolve('/'));
@@ -34,106 +35,136 @@
 	}
 </script>
 
-<div class="page login">
-	<div class="top grid">
-		<span class="label">πύλη — portal</span>
-		<span class="meta right">acesso restrito</span>
-	</div>
+<div class="login">
+	{#if photo}<img class="bg" class:on={loaded} src={photo.url} alt="" onload={() => (loaded = true)} />{/if}
+	<div class="shade"></div>
 
-	<form class="grid mid" onsubmit={submit}>
-		<div class="door">
-			{#if photo}<img class="ph" src={photo.url} alt="" width={photo.w} height={photo.h} />{:else}<Doodle name="door" size={64} />{/if}
+	<div class="page content">
+		<div class="top">
+			<span>πύλη — portal</span>
+			<span class="meta">acesso restrito</span>
 		</div>
-		<div class="fieldset">
-			<!-- usuário invisível: ajuda o gerenciador de senhas do navegador a reconhecer o login -->
-			<input class="sr-only" type="text" name="username" autocomplete="username" value="pyle" tabindex="-1" aria-hidden="true" readonly />
-			<label class="label" for="pw">senha</label>
-			<input id="pw" class="field" type="password" name="password" autocomplete="current-password" bind:value={password} required />
+
+		<form onsubmit={submit}>
+			<label for="user">login</label>
+			<input id="user" type="text" name="username" autocomplete="username" autocapitalize="none" spellcheck="false" bind:value={username} required />
+			<label for="pw">senha</label>
+			<input id="pw" type="password" name="password" autocomplete="current-password" bind:value={password} required />
 			{#if error}<p class="err" role="alert">{error}</p>{/if}
-			<button class="btn primary" disabled={busy || !password}>{busy ? 'entrando…' : 'entrar'}</button>
-		</div>
-	</form>
+			<button disabled={busy || !password || !username}>{busy ? 'entrando…' : 'entrar'}</button>
+		</form>
 
-	<h1 class="title-xl wordmark">πύλη</h1>
+		<h1 class="wordmark">πύλη</h1>
+	</div>
 </div>
 
 <style>
+	/* sempre sobre a foto: cores fixas (não mudam com o modo noturno) */
 	.login {
-		height: 100dvh;
-		min-height: 560px;
+		position: relative;
+		min-height: 100dvh;
+		background: #000;
+		color: #fff;
+		overflow: hidden;
+	}
+	.bg {
+		position: fixed;
+		inset: 0;
+		width: 100%;
+		height: 100%;
+		object-fit: cover; /* ocupa a tela toda */
+		object-position: center 60%;
+		opacity: 0;
+		transition: opacity 0.6s ease-out;
+	}
+	.bg.on {
+		opacity: 1;
+	}
+	/* sombra suave para o texto ficar legível em cima da foto */
+	.shade {
+		position: fixed;
+		inset: 0;
+		background: linear-gradient(90deg, rgb(0 0 0 / 0.55) 0%, rgb(0 0 0 / 0.25) 45%, rgb(0 0 0 / 0) 70%),
+			linear-gradient(0deg, rgb(0 0 0 / 0.5) 0%, rgb(0 0 0 / 0) 35%);
+	}
+	.content {
+		position: relative;
+		min-height: 100dvh;
 		display: grid;
-		grid-template-rows: auto minmax(0, 1fr) auto;
+		grid-template-rows: auto 1fr auto;
 	}
 	.top {
+		display: flex;
+		justify-content: space-between;
 		padding: 18px 0 14px;
+		font-size: var(--t-sm);
 	}
-	.top .label {
-		grid-column: 1 / span 6;
+	.top .meta {
+		color: rgb(255 255 255 / 0.7);
 	}
-	.right {
-		grid-column: 7 / span 6;
-		justify-self: end;
-	}
-	.mid {
-		min-height: 0;
-		align-items: stretch;
-	}
-	.door {
-		grid-column: 1 / span 6;
-		min-height: 0;
-		height: 100%;
-	}
-	/* a foto ocupa toda a altura entre o topo e a palavra, inteira (sem corte) */
-	.ph {
-		display: block;
-		height: 100%;
-		width: auto;
-		max-width: 100%;
-		object-fit: contain;
-		object-position: left center;
-	}
-	.fieldset {
-		grid-column: 8 / span 4;
+	form {
 		align-self: center;
+		width: min(340px, 100%);
 		display: grid;
-		align-content: start;
-		gap: 16px;
-		justify-items: start;
+		gap: 6px;
 	}
-	.fieldset .field {
+	label {
+		font-size: var(--t-sm);
+		color: rgb(255 255 255 / 0.8);
+		margin-top: 12px;
+	}
+	input {
 		width: 100%;
+		padding: 10px 0;
+		border: 0;
+		border-bottom: 1px solid rgb(255 255 255 / 0.85);
+		border-radius: 0;
+		background: transparent;
+		color: #fff;
+		font-size: 16px;
+		outline: none;
 	}
-	.fieldset .btn {
-		padding: 10px 22px;
+	input:focus {
+		border-bottom: 2px solid #ff006f;
+		padding-bottom: 9px;
+	}
+	input:-webkit-autofill,
+	input:-webkit-autofill:focus {
+		-webkit-text-fill-color: #fff;
+		-webkit-box-shadow: 0 0 0 1000px transparent inset;
+		caret-color: #fff;
+	}
+	button {
+		justify-self: start;
+		margin-top: 22px;
+		padding: 11px 26px;
+		border: 0;
+		background: #ff006f;
+		color: #fff;
+		font-size: var(--t-sm);
+		cursor: pointer;
+	}
+	button:disabled {
+		opacity: 0.55;
+		cursor: default;
+	}
+	button:not(:disabled):hover {
+		background: #fff;
+		color: #000;
 	}
 	.err {
-		color: var(--accent);
+		color: #fff;
+		background: #ff006f;
+		padding: 6px 10px;
 		font-size: var(--t-sm);
+		justify-self: start;
+		margin-top: 10px;
 	}
 	.wordmark {
 		font-size: clamp(80px, 18vw, 240px);
-		padding: 10px 0 var(--gutter);
-	}
-	@media (max-width: 720px) {
-		.login {
-			height: auto;
-			min-height: 100dvh;
-			grid-template-rows: auto auto auto;
-		}
-		.door,
-		.fieldset {
-			grid-column: 1 / -1;
-		}
-		.door {
-			height: auto;
-		}
-		.ph {
-			width: 100%;
-			height: auto;
-			max-height: 55vh;
-		}
-		.fieldset {
-			margin: 24px 0;
-		}
+		line-height: 0.9;
+		letter-spacing: -0.03em;
+		padding-bottom: var(--gutter);
+		font-weight: 400;
 	}
 </style>

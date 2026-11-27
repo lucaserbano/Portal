@@ -34,7 +34,8 @@ function page(o: { client: string; host: string; local: boolean; handle: string;
     <input type="hidden" name="handle" value="${esc(o.handle)}">
     <input type="hidden" name="client" value="${esc(o.client)}">
     <input type="hidden" name="host" value="${esc(o.host)}">
-    <input type="password" name="password" placeholder="senha do portal" autocomplete="current-password" autofocus required>
+    <input type="text" name="username" placeholder="login" autocomplete="username" autocapitalize="none" autofocus required>
+    <input type="password" name="password" placeholder="senha" autocomplete="current-password" required style="margin-top:8px">
     <div class="row" style="margin-top:16px">
       <button class="ok" name="decision" value="approve">permitir</button>
       <button name="decision" value="deny" formnovalidate>recusar</button>
@@ -70,11 +71,12 @@ export async function authorize(request: Request, env: Env): Promise<Response> {
   const ip = request.headers.get('CF-Connecting-IP') ?? 'local';
   const fails = await env.DB.prepare('SELECT COUNT(*) AS n FROM login_attempts WHERE ip = ? AND at > ?').bind(ip, now() - FAIL_WINDOW_S).first<{ n: number }>();
   const password = String(form.get('password') ?? '');
+  const userOk = String(form.get('username') ?? '').trim().toLowerCase() === (env.LOGIN_USER || 'pyle').toLowerCase();
   const blocked = (fails?.n ?? 0) >= MAX_FAILS;
-  if (blocked || !password || !(await verifyPassword(password, env.PASSWORD_HASH))) {
+  if (blocked || !userOk || !password || !(await verifyPassword(password, env.PASSWORD_HASH))) {
     if (!blocked) await env.DB.prepare('INSERT INTO login_attempts (ip, at) VALUES (?, ?)').bind(ip, now()).run();
     // o formulário volta com o erro (o handle continua valendo até permitir ou recusar)
-    const msg = blocked ? 'Muitas tentativas. Tente de novo em 15 minutos.' : 'Senha incorreta.';
+    const msg = blocked ? 'Muitas tentativas. Tente de novo em 15 minutos.' : 'Login ou senha incorretos.';
     return new Response(page({ client: String(form.get('client') ?? 'O app'), host: String(form.get('host') ?? ''), local: false, handle, error: msg }), {
       status: 401,
       headers: { 'Content-Type': 'text/html; charset=utf-8', 'X-Frame-Options': 'DENY', 'Content-Security-Policy': "frame-ancestors 'none'" },
