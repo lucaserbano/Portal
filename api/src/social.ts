@@ -248,7 +248,7 @@ social.patch('/scripts/:id', async (c) => {
 });
 
 // ---------- Etapas do roteiro na agenda: criar o roteiro, enviar ao designer, publicar ----------
-const STEPS: Record<string, string> = { roteiro: 'Criar roteiro', design: 'Enviar ao designer', publicar: 'Publicar' };
+const STEPS: Record<string, string> = { roteiro: 'criar roteiro', design: 'enviar ao designer', publicar: 'publicar' };
 const uidOf = (href: string) => decodeURIComponent(href.split('/').pop() ?? '').replace(/\.ics$/, '');
 
 social.put('/scripts/:id/events/:kind', async (c) => {
@@ -262,11 +262,11 @@ social.put('/scripts/:id/events/:kind', async (c) => {
     .first<Row>();
   if (!s) return c.json({ error: 'Roteiro não encontrado.' }, 404);
   const ev = {
-    title: `${STEPS[kind]} · ${s.title} (${s.client})`.slice(0, 300),
+    title: `${s.client} › ${s.title} › ${STEPS[kind]}`.slice(0, 300),
     start,
     end: start + 3600,
     all_day: false,
-    notes: `${FORMAT_NAME[s.format] ?? s.format} · ${c.env.SITE_URL}/clientes/${s.client_id}`,
+    notes: `${FORMAT_NAME[s.format] ?? s.format}\n${c.env.SITE_URL}/clientes/${s.client_id}?roteiro=${id}`,
     remind_min: 60,
   };
   const cur = await c.env.DB.prepare('SELECT href FROM script_events WHERE script_id = ? AND kind = ?').bind(id, kind).first<Row>();
@@ -387,7 +387,7 @@ social.post('/scripts/:id/task', async (c) => {
   if (!s) return c.json({ error: 'Roteiro não encontrado.' }, 404);
   // Só um lembrete: o texto do roteiro fica no roteiro (a tarefa leva o link para abri-lo)
   const link = `${c.env.SITE_URL}/clientes/${s.client_id}?roteiro=${s.id}`;
-  const md = `**Lembrete do roteiro** · ${s.client} · ${FORMAT_NAME[s.format] ?? s.format}\n\nO roteiro fica na aba Roteiros do cliente. Abrir: ${link}`;
+  const md = `**Lembrete do roteiro**\n\nCliente: ${s.client}\nFormato: ${FORMAT_NAME[s.format] ?? s.format}\n\nO roteiro fica na aba Roteiros do cliente. Abrir: ${link}`;
   const tid = await makeTask(c.env, `Roteiro: ${s.title} (${s.client})`, md, await c.req.json<Row>().catch(() => ({})));
   await c.env.DB.prepare('UPDATE scripts SET task_id = ?, updated_at = ? WHERE id = ?').bind(tid, now(), s.id).run();
   return c.json({ id: tid });

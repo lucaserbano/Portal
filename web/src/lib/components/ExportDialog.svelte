@@ -70,7 +70,7 @@
 			else if (format === 'csv') blob = new Blob([toCSV(selected, f)], { type: 'text/csv;charset=utf-8' });
 			else if (format === 'xlsx') blob = await toXLSX(selected, f);
 			else if (format === 'docx') blob = await toDOCX(data.board.name, groups, f);
-			else blob = await toPDF(data.board.name, `πύλη · exportado em ${fmtLong(nowS())}`, groups, f);
+			else blob = await toPDF(data.board.name, `πύλη, exportado em ${fmtLong(nowS())}`, groups, f);
 			await deliver(blob, `${name}.${format}`);
 			done = `${selected.length} tarefas exportadas`;
 		} catch (e) {

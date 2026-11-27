@@ -317,13 +317,13 @@
 							onchange={(e) => renameColumn(col, e.currentTarget.value)}
 							onkeydown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
 						/>
-						<button class="more" onclick={() => (menuFor = menuFor === col.id ? null : col.id)} aria-label="Opções">···</button>
+						<button class="more" onclick={() => (menuFor = menuFor === col.id ? null : col.id)} aria-label="Opções">…</button>
 					</header>
 					<p class="meta counts">
 						<span>{plural(c.total, 'tarefa')}</span>
 						<span>{c.ok} no prazo</span>
 						<span class:late={c.late > 0}>{plural(c.late, 'atrasada')}</span>
-						{#if col.is_final}<span>· final</span>{/if}
+						{#if col.is_final}<span>final</span>{/if}
 					</p>
 
 					{#if menuFor === col.id}

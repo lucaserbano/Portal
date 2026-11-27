@@ -86,9 +86,9 @@
 					<a href={resolve('/formularios/[id]', { id: f.id })} class="card">
 						<span class="t">{f.title}</span>
 						<span class="meta">
-							{plural(f.total, 'resposta')}{#if f.unread}&nbsp;·&nbsp;<b class="new">{f.unread} {f.unread === 1 ? 'nova' : 'novas'}</b>{/if}
+							{plural(f.total, 'resposta')}{#if f.unread}, <b class="new">{f.unread} {f.unread === 1 ? 'nova' : 'novas'}</b>{/if}
 						</span>
-						<span class="meta">{f.open ? 'recebendo respostas' : 'fechado'}{f.last_at ? ` · última ${fmtShort(f.last_at)}` : ''}</span>
+						<span class="meta">{f.open ? 'recebendo respostas' : 'fechado'}{f.last_at ? `, última ${fmtShort(f.last_at)}` : ''}</span>
 					</a>
 				</li>
 			{/each}

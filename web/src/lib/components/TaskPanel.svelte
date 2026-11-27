@@ -269,7 +269,7 @@
 		try {
 			const [{ task: ex }, x] = await Promise.all([api<{ task: ExTask }>(`/tasks/${current}/export`), import('#lib/export.ts')]);
 			const all = new Set(x.FIELDS.map((f) => f.key));
-			const blob = await x.toPDF(ex.title, `πύλη · ${ex.list ?? 'inbox'}`, [{ name: '', tasks: [ex] }], all);
+			const blob = await x.toPDF(ex.title, `πύλη, ${ex.list ?? 'inbox'}`, [{ name: '', tasks: [ex] }], all);
 			const name = `${x.fileSlug(ex.title)}.pdf`;
 			const r = await x.deliver(blob, name, true);
 			if (r === 'gesture') pendingPdf = new File([blob], name, { type: 'application/pdf' });
@@ -417,8 +417,8 @@
 			></textarea>
 		</div>
 		<p class="meta state">
-			{#if task.done_at}concluída em {fmtLong(task.done_at)} · <button class="link small" onclick={toggleDone}>reabrir</button>
-			{:else}círculo = concluir · tudo salva sozinho{/if}
+			{#if task.done_at}concluída em {fmtLong(task.done_at)}. <button class="link small" onclick={toggleDone}>reabrir</button>
+			{:else}O círculo conclui a tarefa. Tudo salva sozinho.{/if}
 		</p>
 
 		<nav class="actions" aria-label="Ações da tarefa">

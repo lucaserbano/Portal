@@ -64,17 +64,20 @@ widgetPublic.get('/widget', async (c) => {
   const item = (r: Row) => ({ title: r.title, due_at: r.due_at, board: r.board, priority: r.priority });
   const ev = c.req.query('eventos') === '0' ? null : await listEvents(c.env, t0, t0 + DAYS * 86400);
   const evs = (ev?.events ?? []).sort((a, b) => a.start - b.start);
-  // etapas de roteiro ("Publicar · título (cliente)") viram um item próprio
-  const STEP = /^(Criar roteiro|Enviar ao designer|Publicar) · (.+?)(?: \(([^)]+)\))?$/;
+  // etapas de roteiro: formato novo "cliente › título › ação" e o antigo "Ação · título (cliente)"
+  const STEP_NEW = /^(.+?) › (.+) › (criar roteiro|enviar ao designer|publicar)$/;
+  const STEP_OLD = /^(Criar roteiro|Enviar ao designer|Publicar) \u00b7 (.+?)(?: \(([^)]+)\))?$/;
   const agenda = [
     ...rows.map((r) => ({ kind: 'task', title: r.title, at: r.due_at, all_day: false, late: r.due_at < now(), where: r.client || r.board || '' })),
     ...evs
       .filter((e) => e.all_day || e.end > now()) // evento que já acabou some
       .map((e) => {
-        const m = e.uid.startsWith('pyle-ev-') ? STEP.exec(e.title) : null;
-        return m
-          ? { kind: 'step', step: m[1].toLowerCase(), title: m[2], at: e.start, all_day: e.all_day, late: false, where: m[3] ?? '' }
-          : { kind: 'event', title: e.title, at: e.start, all_day: e.all_day, late: false, where: '' };
+        const own = e.uid.startsWith('pyle-ev-');
+        const n = own ? STEP_NEW.exec(e.title) : null;
+        if (n) return { kind: 'step', step: n[3], title: n[2], at: e.start, all_day: e.all_day, late: false, where: n[1] };
+        const o = own ? STEP_OLD.exec(e.title) : null;
+        if (o) return { kind: 'step', step: o[1].toLowerCase(), title: o[2], at: e.start, all_day: e.all_day, late: false, where: o[3] ?? '' };
+        return { kind: 'event', title: e.title, at: e.start, all_day: e.all_day, late: false, where: '' };
       }),
   ].sort((a, b) => Number(b.late) - Number(a.late) || a.at - b.at || Number(b.all_day) - Number(a.all_day));
   c.header('Cache-Control', 'no-store');

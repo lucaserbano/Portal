@@ -1,6 +1,6 @@
 // Script do widget para o app Scriptable (iPhone). O token vai embutido.
 export function widgetScript(apiUrl: string, siteUrl: string) {
-	return `// πύλη · widget (app Scriptable)
+	return `// πύλη, widget (app Scriptable)
 // Próximos 14 dias por dia: tarefas com prazo, etapas de roteiro e eventos da agenda.
 // O Scriptable só informa o formato do widget; o tamanho sai da tabela da Apple (pontos, tela de 440 de largura),
 // ajustado à largura da tela deste iPhone. Com isso: a foto sai na proporção certa e só entram as linhas que cabem.
@@ -109,8 +109,8 @@ if (data.error) {
   const label = (i) => {
     const x = new Date((data.today0 + i * DAY + 43200) * 1000);
     const dm = x.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
-    if (i === 0) return "hoje · " + dm;
-    if (i === 1) return "amanhã · " + dm;
+    if (i === 0) return "hoje, " + dm;
+    if (i === 1) return "amanhã, " + dm;
     const wd = x.toLocaleDateString("pt-BR", { weekday: tight ? "short" : "long" }).replace("-feira", "").replace(".", "");
     return wd + ", " + dm;
   };

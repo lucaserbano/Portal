@@ -361,7 +361,7 @@
 		</div>
 
 		<section class="steps" aria-label="Agenda">
-			<p class="meta">agenda · cria o evento no calendário πύλη, com aviso 1 h antes</p>
+			<p class="meta">Cada data vira um evento no calendário πύλη, com aviso 1 h antes.</p>
 			{#each STEPS as [k, n] (k)}
 				<div class="step" class:set={!!events[k]}>
 					<span class="label">{n}</span>

@@ -4,7 +4,7 @@
 
 <section class="head">
 	<h1 class="title-xl">Galeria</h1>
-	<p class="meta">portais, portas e salas de luz · as referências visuais do πύλη</p>
+	<p class="meta">portais, portas e salas de luz: as referências visuais do πύλη</p>
 </section>
 
 <PhotoMosaic />

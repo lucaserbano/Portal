@@ -277,7 +277,7 @@
 			<button class:on={active('blockquote')} onclick={() => cmd().toggleBlockquote().run()} title="Citação">“</button>
 			<button class:on={active('codeBlock')} onclick={() => cmd().toggleCodeBlock().run()} title="Código">{'{}'}</button>
 			<button class:on={active('link')} onclick={openLink} title="Link">↗</button>
-			<span class="hint meta">@ pessoa · # tarefa</span>
+			<span class="hint meta">@ pessoa # tarefa</span>
 		</div>
 		{#if linkOpen}
 			<form class="linkform" onsubmit={applyLink}>

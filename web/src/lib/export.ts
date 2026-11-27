@@ -77,7 +77,7 @@ export function toMarkdown(title: string, groups: { name: string; tasks: ExTask[
 		for (const t of g.tasks) {
 			md += `### ${t.done_at ? '[x]' : '[ ]'} ${t.title}\n\n`;
 			const m = meta(t, new Set([...f].filter((k) => k !== 'list')));
-			if (m.length) md += `_${m.map(([k, v]) => `${k}: ${v}`).join(' · ')}_\n\n`;
+			if (m.length) md += `_${m.map(([k, v]) => `${k}: ${v}`).join('; ')}_\n\n`;
 			if (f.has('description') && t.description_md.trim()) md += `${t.description_md.trim()}\n\n`;
 			if (f.has('checklist') && t.checklist.length) md += t.checklist.map((c) => `- [${c.done ? 'x' : ' '}] ${checkLine(c)}`).join('\n') + '\n\n';
 			if (f.has('attachments') && t.attachments.length)
@@ -226,7 +226,7 @@ export async function toPDF(title: string, subtitle: string, groups: { name: str
 			if (!single) text((t.done_at ? '[x] ' : '') + t.title, 13, { gap: 2 });
 			else if (t.done_at) text('concluída', 9, { color: [255, 0, 111], gap: 2 });
 			const m = meta(t, new Set([...f].filter((k) => k !== 'list')));
-			if (m.length) text(m.map(([k, v]) => `${k}: ${v}`).join('   ·   '), 8.5, { color: [128, 128, 128], gap: 4 });
+			if (m.length) text(m.map(([k, v]) => `${k}: ${v}`).join('      '), 8.5, { color: [128, 128, 128], gap: 4 });
 			if (f.has('description') && t.description_md.trim()) text(plain(t.description_md), 10, { gap: 6 });
 			if (f.has('checklist') && t.checklist.length) {
 				for (const c of t.checklist) text(`${c.done ? '[x]' : '[  ]'}  ${checkLine(c)}`, 10, { indent: 8, color: c.done ? [128, 128, 128] : [0, 0, 0] });
@@ -251,7 +251,7 @@ export async function toPDF(title: string, subtitle: string, groups: { name: str
 		doc.setFont('helvetica', 'normal');
 		doc.setFontSize(8);
 		doc.setTextColor(128, 128, 128);
-		doc.text(`${pdfSafe(title)} · ${i}/${pages}`, W - M, H - 24, { align: 'right' });
+		doc.text(`${pdfSafe(title)}    ${i}/${pages}`, W - M, H - 24, { align: 'right' });
 	}
 	return doc.output('blob');
 }
@@ -308,7 +308,7 @@ export async function scriptToPDF(sc: ScriptPdf) {
 		y += o.gap ?? 0;
 	};
 
-	text(`${sc.client} · ${sc.format} · ${sc.status}`, 9, { color: [128, 128, 128], gap: 4 });
+	text(`${sc.client}, ${sc.format}, ${sc.status}`, 9, { color: [128, 128, 128], gap: 4 });
 	text(sc.title, 24, { gap: 6 });
 	need(10);
 	doc.setDrawColor(...PINK);
@@ -356,7 +356,7 @@ export async function scriptToPDF(sc: ScriptPdf) {
 		doc.setFont('helvetica', 'normal');
 		doc.setFontSize(8);
 		doc.setTextColor(128, 128, 128);
-		doc.text(`${pdfSafe(sc.client + ' · ' + sc.title)} · ${i}/${pages}`, W - M, H - 24, { align: 'right' });
+		doc.text(`${pdfSafe(sc.client + ', ' + sc.title)}    ${i}/${pages}`, W - M, H - 24, { align: 'right' });
 	}
 	return doc.output('blob');
 }

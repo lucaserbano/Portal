@@ -298,7 +298,7 @@
 			onchange={(e) => e.currentTarget.value.trim() && saveClient({ name: e.currentTarget.value.trim() })}
 			onkeydown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
 		/>
-		<p class="meta">{client.handle || 'sem @'}{client.niche ? ` · ${client.niche}` : ''}</p>
+		<p class="meta">{client.handle || 'sem @'}{client.niche ? `, ${client.niche}` : ''}</p>
 	</section>
 
 	<nav class="tabs">
@@ -361,7 +361,7 @@
 				<li class="theme" class:open={openTheme === t.id} class:off={t.status === 'descartado' || t.status === 'postado'} style:--fc={formatColor(t.format)}>
 					<button class="trow" onclick={() => (openTheme = openTheme === t.id ? null : t.id)}>
 						<span class="tt">{t.title}</span>
-						<span class="meta"><b class="fname">{formatName(t.format)}</b>{t.pillar ? ` · ${t.pillar}` : ''}</span>
+						<span class="meta"><b class="fname">{formatName(t.format)}</b>{t.pillar ? ` ${t.pillar}` : ''}</span>
 						<span class="st meta st-{t.status}">{statusName(t.status)}</span>
 					</button>
 					{#if openTheme === t.id}
@@ -422,11 +422,11 @@
 			{#each shownScripts as s (s.id)}
 				<li>
 					<button class="scard" onclick={() => (openScript = s.id)} style:--fc={formatColor(s.format)}>
-						<span class="meta"><b class="fname">{formatName(s.format)}</b> · <span class="st-{s.status}">{statusName(s.status)}</span></span>
+						<span class="meta"><b class="fname">{formatName(s.format)}</b> <span class="st-{s.status}">{statusName(s.status)}</span></span>
 						<span class="tt">{s.title}</span>
 						{#if themeTitle(s.theme_id) && themeTitle(s.theme_id) !== s.title}<span class="meta">tema: {themeTitle(s.theme_id)}</span>{/if}
 						<span class="ex">{s.excerpt}</span>
-						<span class="meta">editado {fmtShort(s.updated_at)}{s.images ? ` · ${s.images} ${s.images === 1 ? 'imagem' : 'imagens'}` : ''}</span>
+						<span class="meta">editado {fmtShort(s.updated_at)}{s.images ? `, ${s.images} ${s.images === 1 ? 'imagem' : 'imagens'}` : ''}</span>
 					</button>
 				</li>
 			{:else}

@@ -25,7 +25,7 @@
 			{#if data.brand?.logo}<img class="logo" src={data.brand.logo} alt={data.client} />{/if}
 			<p class="meta">acompanhamento</p>
 			<h1 class="title-xl">{data.client}</h1>
-			<p class="label grey">{open.length} em andamento · {closed.length} concluídas</p>
+			<p class="label grey">{open.length} em andamento, {closed.length} concluídas</p>
 		</header>
 		{#each open as t, k (k)}<PublicTask task={t} />{/each}
 		{#if closed.length}

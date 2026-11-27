@@ -49,7 +49,7 @@
 						<span class="t">{c.name}</span>
 						{#if c.handle}<span class="meta">{c.handle}</span>{/if}
 						{#if c.niche}<span class="niche">{c.niche}</span>{/if}
-						<span class="meta foot">{plural(c.open_themes, 'tema')} na fila · {plural(c.open_scripts, 'roteiro')} em aberto</span>
+						<span class="meta foot">{plural(c.open_themes, 'tema')} na fila, {plural(c.open_scripts, 'roteiro')} em aberto</span>
 					</a>
 				</li>
 			{/each}

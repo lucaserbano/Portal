@@ -63,7 +63,7 @@
 				{/if}
 				{#if fields.start && task.start_at}<span class="meta">↦ {fmtShort(task.start_at)}</span>{/if}
 				{#if fields.due && task.due_at}
-					<span class="meta" class:late>{late ? 'atrasada · ' : ''}{fmtShort(task.due_at)}</span>
+					<span class="meta" class:late>{late ? 'atrasada, ' : ''}{fmtShort(task.due_at)}</span>
 				{/if}
 				{#if (task.placements ?? 1) > 1}<span class="meta mirror" title="Cartão espelho">⧉</span>{/if}
 				{#if fields.people && members.length}

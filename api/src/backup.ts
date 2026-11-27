@@ -21,7 +21,7 @@ function taskMd(t: Row) {
     t.done_at && `concluída: ${fmt(t.done_at)}`,
   ].filter(Boolean);
   let md = `### ${t.done_at ? '[x]' : '[ ]'} ${t.title}\n`;
-  if (meta.length) md += `\n_${meta.join(' · ')}_\n`;
+  if (meta.length) md += `\n_${meta.join('; ')}_\n`;
   if (t.description_md) md += `\n${t.description_md}\n`;
   const items = CHECK.filter((c) => c.task_id === t.id);
   if (items.length) {

@@ -1,13 +1,20 @@
-/* πύλη — sistema visual
-   Estrutura: grid suíço/Bauhaus, filetes de 1px, nada de sombra, gradiente ou canto arredondado.
-   Cor: preto, branco, cinza. Magenta só para ação, estado ativo e alerta. */
+/* πύλη, sistema visual (identidade de 27/11/2026: ver referencias-identidade-pyle.md, fora do Git)
+   Estrutura: grid suíço/Bauhaus, filetes de 1px, nada de sombra nem canto arredondado na interface.
+   Cor: preto e branco, com o magenta como única cor chapada (ação, estado ativo, alerta).
+   Ameixa, violeta, lavanda e rosa névoa só em fotos, brilhos e comprimidos.
+   Tipo em 3 camadas: Commissioner pesada nos títulos, fina nos números grandes, monoespaçada nos rótulos. */
 
 :root {
 	--black: #000;
 	--white: #fff;
-	--grey: #808080;
-	--grey-light: #e6e6e6;
+	--grey: #8a8090; /* cinza puxado para o ameixa */
+	--grey-light: #e9e3e7;
 	--accent: #ff006f;
+	/* cores de luz: só em fotos, brilhos e comprimidos, nunca em botões ou textos */
+	--ameixa: #560034;
+	--violeta: #710554;
+	--lavanda: #979ff0;
+	--nevoa: #ffcaf4;
 
 	/* tons de apoio (trocam no modo noturno) */
 	--inactive: #c8c8c8;
@@ -17,7 +24,7 @@
 	--scrim: rgb(255 255 255 / 0.65);
 	color-scheme: light;
 
-	--sans: 'Helvetica Neue', Helvetica, Arial, system-ui, sans-serif;
+	--sans: 'Commissioner', 'Helvetica Neue', Helvetica, Arial, system-ui, sans-serif;
 	--mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
 
 	--gutter: clamp(16px, 2.4vw, 32px);
@@ -35,9 +42,9 @@
 :root[data-theme='dark'] {
 	--black: #fff;
 	--white: #000;
-	--grey-light: #2b2b2b;
-	--inactive: #4d4d4d;
-	--code-bg: #161616;
+	--grey-light: #2a1f27;
+	--inactive: #4a3d46;
+	--code-bg: #160f14;
 	--soft: #bbb;
 	--select-bg: #3d0018;
 	--scrim: rgb(0 0 0 / 0.65);
@@ -125,14 +132,23 @@ select {
 
 .title-xl {
 	font-size: var(--t-xl);
-	line-height: 0.95;
-	letter-spacing: -0.03em;
+	font-weight: 900;
+	line-height: 0.9;
+	letter-spacing: -0.045em;
 }
 
 .title-lg {
 	font-size: var(--t-lg);
+	font-weight: 700;
 	line-height: 1.1;
-	letter-spacing: -0.01em;
+	letter-spacing: -0.02em;
+}
+
+/* números grandes e finos (datas, contagens em destaque) */
+.num-fino {
+	font-weight: 100;
+	letter-spacing: -0.04em;
+	font-variant-numeric: tabular-nums;
 }
 
 /* Sublinhado de destaque, como o marca-texto do Quick, Draw! */

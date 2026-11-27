@@ -1,7 +1,8 @@
 <script lang="ts">
-	// Abertura: "πύλη" vem em zoom acelerando, se desfaz em feixes de linhas finas que viram portais
-	// (aberturas retangulares, como as salas de luz de Turrell) e a câmera atravessa o túnel até a página.
-	// Canvas puro, ~1,8 s. Toque/clique pula. Com "reduzir movimento", só um esmaecer rápido.
+	// Abertura: o símbolo aparece e a porta sobe (passa da altura e volta). A câmera se aproxima acelerando
+	// e, enquanto se aproxima, a lente abre (distância focal menor, as bordas se curvam). Atravessamos a porta
+	// e seguimos por um túnel de portas (só o contorno) que desce e sobe uma vez; na última, a página aparece.
+	// Canvas puro, cerca de 2,9 s. Toque/clique pula. Com "reduzir movimento", só um esmaecer rápido.
 	import { onMount } from 'svelte';
 
 	let { ondone }: { ondone: () => void } = $props();
@@ -11,18 +12,62 @@
 	let gone = $state(false);
 	const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-	const PINK = [255, 0, 111] as const;
-	const T_ZOOM = 0.85; // fim do zoom da palavra
-	const T_TUNNEL = 1.55; // começa a esmaecer ainda dentro do túnel
-	const T_END = 1.9;
-
 	function finish() {
 		if (fading) return;
 		fading = true;
-		setTimeout(() => {
-			gone = true;
-			ondone();
-		}, reduce ? 260 : 420);
+		setTimeout(
+			() => {
+				gone = true;
+				ondone();
+			},
+			reduce ? 260 : 420
+		);
+	}
+
+	// ---------- o símbolo, em unidades de 0 a 100 (a porta tem o centro em 50, 75) ----------
+	const MAG = '#FF006F';
+	const DOOR = { x: 41, y: 56, w: 18, h: 38 };
+	const DC = { x: 50, y: 75 };
+
+	// ---------- tempos ----------
+	const T_SWING = 1.05; // a porta sobe
+	const T_MOVE = 1.8; // aproximação + túnel
+	const FOCAL_END = 0.42; // lente mais aberta (distância focal relativa)
+
+	// túnel: muitas portas, quase coladas; o caminho desce uma vez e sobe uma vez
+	const N = 90;
+	const GAP = 0.05;
+	const LEN = N * GAP;
+	const AMP = 30;
+	const track = (p: number) => (AMP * (1 - Math.cos(Math.max(0, Math.min(1, (p - 1) / LEN)) * Math.PI * 2))) / 2;
+
+	const smooth = (x: number) => {
+		x = Math.max(0, Math.min(1, x));
+		return x * x * (3 - 2 * x);
+	};
+	const easeIn = (x: number) => x * x * x;
+	const easeOut = (x: number) => 1 - Math.pow(1 - x, 3);
+	const inOutCubic = (p: number) => (p < 0.5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2);
+
+	// porta do símbolo: sobe acelerando, passa ~24% da altura e volta desacelerando
+	function doorScale(t: number) {
+		if (t <= 0) return 0;
+		const p = Math.min(1, t / T_SWING);
+		const k = 0.56;
+		return p < k ? 1.24 * easeIn(p / k) : 1.24 - 0.24 * easeOut((p - k) / (1 - k));
+	}
+	// câmera: um movimento só; a lente abre enquanto ela se aproxima do símbolo
+	function camera(t: number) {
+		const f = t - T_SWING;
+		if (f <= 0) return { travel: 0, focal: 1 };
+		const travel = (1 + LEN + 0.1) * inOutCubic(Math.min(1, f / T_MOVE));
+		return { travel, focal: 1 - (1 - FOCAL_END) * smooth(travel) };
+	}
+	// altura da câmera: média do caminho logo à frente (antecipa a curva, sem balançar)
+	function camHeight(travel: number) {
+		let sum = 0;
+		for (let k = 0; k < 9; k++) sum += track(travel + k * 0.08);
+		return sum / 9;
 	}
 
 	onMount(() => {
@@ -44,148 +89,100 @@
 		resize();
 		addEventListener('resize', resize);
 
-		// a palavra desenhada uma vez num canvas próprio (para virar linhas depois)
-		const word = document.createElement('canvas');
-		const wctx = word.getContext('2d')!;
-		const FS = 220;
-		wctx.font = `400 ${FS}px "Helvetica Neue", Helvetica, Arial, sans-serif`;
-		const tw = Math.ceil(wctx.measureText('πύλη').width) + 40;
-		word.width = tw;
-		word.height = FS * 1.5;
-		wctx.font = `400 ${FS}px "Helvetica Neue", Helvetica, Arial, sans-serif`;
-		wctx.fillStyle = `rgb(${PINK})`;
-		wctx.textBaseline = 'middle';
-		wctx.fillText('πύλη', 20, word.height / 2);
-
-		// portais: proporção de porta (estreita e alta), cada um nasce no fundo e passa pela câmera
-		type Portal = { z0: number; ratio: number; lines: number; seed: number; fill: number };
-		const portals: Portal[] = Array.from({ length: 9 }, (_, i) => ({
-			z0: 0.9 + i * 0.75,
-			ratio: i % 3 === 0 ? 0.5 : i % 3 === 1 ? 0.62 : 0.42,
-			lines: 3 + (i % 3),
-			seed: i * 97.13,
-			fill: i % 4
-		}));
-		const rnd = (s: number) => {
-			const x = Math.sin(s) * 43758.5453;
-			return x - Math.floor(x);
+		// lente: distorção em barril (as retas se curvam para fora perto das bordas)
+		let LENS = 0;
+		let CX = 0;
+		let CY = 0;
+		let RR = 1;
+		const lens = (x: number, y: number): [number, number] => {
+			if (LENS <= 0) return [x, y];
+			const nx = (x - CX) / RR;
+			const ny = (y - CY) / RR;
+			const k = 1 / (1 + LENS * Math.min(nx * nx + ny * ny, 4));
+			return [CX + nx * k * RR, CY + ny * k * RR];
 		};
-
-		// traço "à mão": retângulo com pequenas tremidas que mudam a cada ~4 quadros (boil)
-		function wobblyRect(cx: number, cy: number, w: number, h: number, seed: number, amp: number) {
-			const pts: [number, number][] = [];
-			const steps = 4;
-			const corners: [number, number][] = [
-				[cx - w / 2, cy - h / 2],
-				[cx + w / 2, cy - h / 2],
-				[cx + w / 2, cy + h / 2],
-				[cx - w / 2, cy + h / 2]
-			];
-			for (let c = 0; c < 4; c++) {
-				const [ax, ay] = corners[c];
-				const [bx, by] = corners[(c + 1) % 4];
+		// polígono com as arestas subdivididas, para a distorção curvar as retas
+		const poly = (pts: [number, number][], steps: number) => {
+			ctx.beginPath();
+			for (let i = 0; i < pts.length; i++) {
+				const [ax, ay] = pts[i];
+				const [bx, by] = pts[(i + 1) % pts.length];
 				for (let k = 0; k < steps; k++) {
-					const f = k / steps;
-					pts.push([ax + (bx - ax) * f + (rnd(seed + c * 13 + k) - 0.5) * amp, ay + (by - ay) * f + (rnd(seed + c * 31 + k * 7) - 0.5) * amp]);
+					const [px, py] = lens(ax + ((bx - ax) * k) / steps, ay + ((by - ay) * k) / steps);
+					if (i === 0 && k === 0) ctx.moveTo(px, py);
+					else ctx.lineTo(px, py);
 				}
 			}
-			ctx.beginPath();
-			ctx.moveTo(pts[0][0], pts[0][1]);
-			for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i][0], pts[i][1]);
 			ctx.closePath();
-			ctx.stroke();
-		}
+		};
 
 		const t0 = performance.now();
 		let raf = 0;
 		const frame = (now: number) => {
 			const t = (now - t0) / 1000;
-			ctx.globalCompositeOperation = 'source-over';
 			ctx.globalAlpha = 1;
 			ctx.fillStyle = '#000';
 			ctx.fillRect(0, 0, W, H);
-			const cx = W / 2;
-			const cy = H / 2;
-			const boil = Math.floor(t * 15); // a tremida muda ~15 vezes por segundo
+			CX = W / 2;
+			CY = H / 2;
+			RR = Math.hypot(W, H) / 2;
+			const base = (Math.min(W, H) * 0.55) / 100; // tamanho do símbolo em repouso, por unidade
+			const { travel, focal } = camera(t);
+			LENS = 0.32 * smooth((1 - focal) / (1 - FOCAL_END));
+			const camY = camHeight(travel) * smooth((travel - 0.8) / 0.5);
+			const toCenter = smooth(travel / 0.9); // em repouso o símbolo fica centrado; na aproximação, a porta
+			const restOffset = (DC.y - 49) * base;
+			const X = (v: number, u: number) => CX + (v - DC.x) * u;
 
-			// ---------- 1. a palavra em zoom acelerando, se desfazendo em linhas ----------
-			if (t < T_ZOOM + 0.2) {
-				const p = Math.min(1, t / T_ZOOM);
-				const base = Math.min(W * 0.5, 420) / tw;
-				// começo bem suave (quase parado), depois acelera até encher a tela
-				const ss = (x: number) => x * x * (3 - 2 * x);
-				const scale = base * (0.94 + 0.06 * ss(Math.min(1, p * 2))) * Math.exp(Math.pow(p, 3.2) * 5.6);
-				const dw = tw * scale;
-				const dh = word.height * scale;
-				const dissolve = Math.max(0, (p - 0.6) / 0.4); // 0 → 1: vira linhas
-				const alpha = t < 0.32 ? ss(t / 0.32) : t > T_ZOOM ? Math.max(0, 1 - (t - T_ZOOM) / 0.22) : 1;
-				ctx.globalAlpha = alpha;
-				if (dissolve <= 0) {
-					ctx.drawImage(word, cx - dw / 2, cy - dh / 2, dw, dh);
-				} else {
-					// fitas horizontais finas (como o N da Netflix virando fitas): altura fixa na tela,
-					// só as que aparecem — continuam finas por maior que seja o zoom
-					const STRIP = 5;
-					const top = cy - dh / 2;
-					const y0 = Math.max(0, Math.floor(top / STRIP) * STRIP);
-					const y1 = Math.min(H, top + dh);
-					const thin = 1 - ss(dissolve) * 0.6;
-					for (let y = y0; y < y1; y += STRIP) {
-						const sy = ((y - top) / dh) * word.height;
-						const sh = (STRIP / dh) * word.height;
-						if (sy < 0 || sy + sh > word.height) continue;
-						const q = Math.floor((sy / word.height) * 400); // posição na palavra: deslocamento estável
-						const off = (rnd(q * 3.1) - 0.5) * ss(dissolve) * Math.min(dw, W * 3) * 0.12;
-						ctx.drawImage(word, 0, sy, tw, sh * thin, cx - dw / 2 + off, y, dw, STRIP * thin);
-					}
-				}
+			// o símbolo (porta 0)
+			const z0 = 1 - travel;
+			const logoOn = z0 > 0.012;
+			const u0 = (base * focal) / Math.max(z0, 0.012);
+			const cy0 = CY + restOffset * (1 - toCenter) - camY * u0;
+			const k = doorScale(t);
+			const top = 94 - DOOR.h * k;
+			const Y0 = (v: number) => cy0 + (v - DC.y) * u0;
+
+			// até atravessarmos o símbolo, o túnel só aparece pela porta dele
+			if (logoOn) {
+				ctx.save();
+				poly([[X(DOOR.x, u0), Y0(top)], [X(DOOR.x + DOOR.w, u0), Y0(top)], [X(DOOR.x + DOOR.w, u0), Y0(94)], [X(DOOR.x, u0), Y0(94)]], 6);
+				ctx.clip();
+			}
+			// túnel, do fundo para a frente
+			const show = Math.min(1, Math.max(0, (t - T_SWING + 0.15) / 0.3));
+			ctx.strokeStyle = MAG;
+			for (let i = N; i >= 1; i--) {
+				const pos = 1 + i * GAP;
+				const z = pos - travel;
+				if (z <= 0.02) continue;
+				const u = (base * focal) / z;
+				const cy = CY + restOffset * (1 - toCenter) + (track(pos) - camY) * u;
+				const x0 = X(DOOR.x, u);
+				const x1 = X(DOOR.x + DOOR.w, u);
+				const y0 = cy + (DOOR.y - DC.y) * u;
+				const y1 = cy + (94 - DC.y) * u;
+				ctx.globalAlpha = show * Math.min(1, 0.25 + 0.9 / (z * 2.2)) * Math.min(1, (LEN + 1 - z) / 0.6);
+				ctx.lineWidth = Math.max(0.6, Math.min(3, 0.9 / z));
+				poly([[x0, y0], [x1, y0], [x1, y1], [x0, y1]], z < 0.6 ? 14 : 4);
+				ctx.stroke();
+			}
+			ctx.globalAlpha = 1;
+			if (logoOn) {
+				ctx.restore();
+				const pts: [number, number][] =
+					k > 0.001
+						? [[X(4, u0), Y0(94)], [X(41, u0), Y0(94)], [X(41, u0), Y0(top)], [X(59, u0), Y0(top)], [X(59, u0), Y0(94)], [X(96, u0), Y0(94)], [X(50, u0), Y0(4)]]
+						: [[X(4, u0), Y0(94)], [X(96, u0), Y0(94)], [X(50, u0), Y0(4)]];
+				ctx.globalAlpha = Math.min(1, t / 0.18);
+				poly(pts, 18);
+				ctx.fillStyle = MAG;
+				ctx.fill();
 				ctx.globalAlpha = 1;
 			}
-
-			// ---------- 2. túnel de portais desenhados em feixes de linhas ----------
-			if (t > T_ZOOM - 0.3 && t < T_END + 0.4) {
-				const speed = 4.2;
-				const tt = Math.max(0, t - (T_ZOOM - 0.3));
-				const fadeIn = Math.min(1, tt / 0.25);
-				const SPAN = portals.length * 0.75;
-				const travel = tt * speed * (1 + tt * 0.9);
-				const ordered = portals
-					// túnel contínuo: quem passa da câmera volta para o fundo
-					.map((pt) => ({ ...pt, z: ((((pt.z0 - travel - 0.05) % SPAN) + SPAN) % SPAN) + 0.05 }))
-					.filter((pt) => pt.z < 8)
-					.sort((a, b) => b.z - a.z); // do fundo para a frente
-				const unit = Math.min(W, H) * 0.42;
-				for (const pt of ordered) {
-					const s = 1 / pt.z;
-					const h = unit * 1.9 * s;
-					const w = h * pt.ratio;
-					const near = Math.min(1, s / 3);
-					const a = fadeIn * Math.min(1, (8 - pt.z) / 3) * (pt.z < 0.25 ? pt.z / 0.25 : 1);
-					// luz dentro da abertura (como a sala vermelha): gradiente magenta → preto
-					if (pt.fill === 1 || pt.fill === 3) {
-						ctx.fillStyle = `rgba(${PINK},${0.12 * a})`;
-						ctx.fillRect(cx - w / 2, cy - h / 2, w, h);
-					}
-					// feixe de linhas finas: brilho largo e fraco + linhas finas nítidas
-					for (let k = 0; k < pt.lines; k++) {
-						const inset = 1 - k * 0.04;
-						const amp = 2 + near * 8;
-						const seed = pt.seed + k * 5 + boil * 1.7;
-						// brilho só nos portais perto da câmera (economiza desenho)
-						if (near > 0.35 && k === 0) {
-							ctx.lineWidth = 10 + near * 8;
-							ctx.strokeStyle = `rgba(${PINK},${0.08 * a})`;
-							wobblyRect(cx, cy, w * inset, h * inset, seed, amp);
-						}
-						ctx.lineWidth = 0.7 + near * 1.3;
-						ctx.strokeStyle = k % 3 === 2 ? `rgba(255,255,255,${0.55 * a})` : `rgba(${PINK},${0.9 * a})`;
-						wobblyRect(cx, cy, w * inset, h * inset, seed, amp);
-					}
-				}
-			}
-
-			if (t >= T_TUNNEL) finish();
-			if (!gone && t < T_END + 0.6) raf = requestAnimationFrame(frame);
+			// a página aparece quando passamos pela última porta
+			if (1 + LEN - travel < 0.05) finish();
+			if (!gone && t < T_SWING + T_MOVE + 0.6) raf = requestAnimationFrame(frame);
 		};
 		raf = requestAnimationFrame(frame);
 		return () => {

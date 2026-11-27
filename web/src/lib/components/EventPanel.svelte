@@ -156,7 +156,7 @@
 	{#if readOnly && event}
 		<h2 class="title-lg">{event.title}</h2>
 		<p class="label">
-			{#if event.all_day}dia inteiro · {new Date(event.start * 1000).toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' })}
+			{#if event.all_day}dia inteiro, {new Date(event.start * 1000).toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' })}
 			{:else}{fmtWhen(event.start)} – {new Date(event.end * 1000).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}{/if}
 		</p>
 		{#if event.location}<p class="label">{event.location}</p>{/if}

@@ -3,18 +3,24 @@
 	<head>
 		<meta charset="utf-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-		<meta name="theme-color" content="#ffffff" />
+		<meta name="theme-color" content="#000000" />
 		<meta name="robots" content="noindex, nofollow" />
 		<title>πύλη</title>
 		<link rel="apple-touch-icon" href="%sveltekit.assets%/apple-touch-icon.png" />
 		<link rel="manifest" href="%sveltekit.assets%/manifest.webmanifest" />
 		<meta name="apple-mobile-web-app-title" content="πύλη" />
 		<meta name="apple-mobile-web-app-capable" content="yes" />
+		<!-- Commissioner: grotesca com grego, de Kostas Bartsokas (títulos pesados, números finos, texto) -->
+		<link rel="preconnect" href="https://fonts.googleapis.com" />
+		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+		<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Commissioner:wght@100;300;400;500;700;800;900&display=swap" />
 		<script>
 			// tema antes de desenhar a página (evita piscar branco no modo noturno)
 			(function () {
+				// o portal é escuro por padrão; as páginas que o cliente abre (/f, /t, /c) seguem o sistema
 				var t = localStorage.getItem('pyle.theme');
-				var dark = t ? t === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches;
+				var pub = /\/(f|t|c)\//.test(location.pathname);
+				var dark = pub ? matchMedia('(prefers-color-scheme: dark)').matches : t ? t === 'dark' : true;
 				document.documentElement.dataset.theme = dark ? 'dark' : 'light';
 			})();
 		</script>

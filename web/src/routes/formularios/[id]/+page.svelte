@@ -386,7 +386,7 @@
 			{#each shown as r (r.id)}
 				<article class="resp" class:unread={!r.read_at}>
 					<header>
-						<span class="meta">{fmtLong(r.created_at)}{r.source === 'google' ? ' · Google Forms' : ''}</span>
+						<span class="meta">{fmtLong(r.created_at)}{r.source === 'google' ? ', via Google Forms' : ''}</span>
 						{#if !r.read_at}<b class="badge">nova</b>{/if}
 					</header>
 					<dl>

@@ -305,7 +305,7 @@
 			class:cutr={b > week[6]}
 			style="grid-column: {sp.s + 1} / {sp.e + 2}; grid-row: {sp.lane + 2}; {cardVars(t.color) ?? ''}"
 			onclick={() => (openTask = t.id)}
-			title="{t.title}{t.due_at ? ' · prazo ' + new Date(t.due_at * 1000).toLocaleString('pt-BR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : ''}"
+			title="{t.title}{t.due_at ? ', prazo ' + new Date(t.due_at * 1000).toLocaleString('pt-BR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : ''}"
 		>{t.title}</button>
 	{:else}
 		{@const ev = sp.ev}
@@ -325,7 +325,7 @@
 				<button class="item" onclick={() => (eventPanel = { event: ev, day: d })}>
 					<i class="sq" style:background={calOf(ev.cal)?.color ?? 'var(--grey)'}></i>
 					<span class="meta time">{ev.all_day ? 'dia todo' : hm(ev.start)}</span>
-					<span class="it">{ev.title}{#if ev.location}<span class="meta"> · {ev.location}</span>{/if}</span>
+					<span class="it">{ev.title}{#if ev.location}<span class="meta"> {ev.location}</span>{/if}</span>
 				</button>
 			</li>
 		{/each}
@@ -336,7 +336,7 @@
 					<span class="meta time" class:late={isLate(t)}>
 						{t.due_at && sameDay(new Date(t.due_at * 1000), d) ? 'prazo ' + hm(t.due_at) : t.start_at && sameDay(new Date(t.start_at * 1000), d) ? 'início ' + hm(t.start_at) : 'em andamento'}
 					</span>
-					<span class="it" class:done={!!t.done_at}>{t.title}{#if t.boards.length}<span class="meta"> · {t.boards.map(boardName).join(', ')}</span>{/if}</span>
+					<span class="it" class:done={!!t.done_at}>{t.title}{#if t.boards.length}<span class="meta"> {t.boards.map(boardName).join(', ')}</span>{/if}</span>
 				</button>
 			</li>
 		{/each}

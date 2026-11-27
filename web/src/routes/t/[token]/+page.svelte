@@ -22,7 +22,7 @@
 <main class="pub">
 	{#if brand?.logo}<img class="logo" src={brand.logo} alt="" />{/if}
 	{#if task}<PublicTask {task} big />{:else if error}<h1 class="title-lg">{error}</h1>{:else}<p class="meta">carregando…</p>{/if}
-	<footer class="meta">acompanhamento · πύλη</footer>
+	<footer class="meta">acompanhamento πύλη</footer>
 </main>
 
 <style>

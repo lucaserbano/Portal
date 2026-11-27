@@ -7,6 +7,7 @@
 	import { api, auth } from '#lib/api.ts';
 	import type { LayoutProps } from './$types';
 	import Intro from '#lib/components/Intro.svelte';
+	import Symbol from '#lib/components/Symbol.svelte';
 
 	let { children }: LayoutProps = $props();
 
@@ -83,7 +84,7 @@
 {:else if auth.token}
 	<header class="page top">
 		<div class="bar grid">
-			<a class="brand" href={resolve('/')}>πύλη</a>
+			<a class="brand" href={resolve('/')} aria-label="πύλη, quadros"><Symbol size={22} /><span lang="el">πύλη</span></a>
 			<nav aria-label="Principal">
 				{#each nav as item (item.href)}
 					{#if item.href === '/'}
@@ -135,8 +136,14 @@
 	}
 	.brand {
 		grid-column: 1 / span 2;
-		font-size: 20px;
-		letter-spacing: 0.02em;
+		display: inline-flex;
+		align-items: center;
+		gap: 9px;
+		align-self: center;
+		font-size: 22px;
+		font-weight: 900;
+		letter-spacing: -0.03em;
+		line-height: 1;
 		text-decoration: none;
 	}
 	nav {

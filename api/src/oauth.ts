@@ -8,7 +8,7 @@ const esc = (v: string) => v.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`)
 function page(o: { client: string; host: string; local: boolean; handle: string; error?: string }) {
   return `<!doctype html>
 <html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>πύλη · autorizar</title>
+<title>Autorizar πύλη</title>
 <style>
   :root{color-scheme:light dark}
   body{margin:0;font:15px/1.45 'Helvetica Neue',Helvetica,Arial,sans-serif;background:#000;color:#fff;display:grid;min-height:100vh;place-items:center}
