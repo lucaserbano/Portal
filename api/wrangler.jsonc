@@ -16,9 +16,10 @@
   "vars": {
     "ALLOWED_ORIGINS": "https://lucaserbano.github.io,http://localhost:5173",
     "BACKUP_REPO": "lucaserbano/pyle-dados",
-    "FILES_QUOTA_BYTES": "5368709120"
+    "FILES_QUOTA_BYTES": "5368709120",
+    "SITE_URL": "https://lucaserbano.github.io/Portal"
   },
   // Backup diário em .md às 06:00 UTC (03:00 em Brasília)
   "triggers": { "crons": ["0 6 * * *"] }
-  // Segredos (wrangler secret put): PASSWORD_HASH, GITHUB_TOKEN
+  // Segredos (wrangler secret put): PASSWORD_HASH, GITHUB_TOKEN, FILE_KEY, ICLOUD_EMAIL, ICLOUD_APP_PASSWORD
 }

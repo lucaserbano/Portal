@@ -2,7 +2,9 @@ import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { FAIL_WINDOW_S, MAX_FAILS, SESSION_DAYS, newToken, sha256, verifyPassword } from './auth';
 import { runBackup } from './backup';
+import { agenda } from './agenda';
 import { boards } from './boards';
+import { syncTasks } from './caldav';
 import { details } from './details';
 import { verify } from './files';
 
@@ -15,6 +17,10 @@ export interface Env {
   FILES: R2Bucket;
   FILE_KEY: string;
   FILES_QUOTA_BYTES: string;
+  SITE_URL: string;
+  ICLOUD_EMAIL?: string;
+  ICLOUD_APP_PASSWORD?: string;
+  PYLE_CALENDAR?: string;
 }
 
 const now = () => Math.floor(Date.now() / 1000);
@@ -89,6 +95,10 @@ api.use('*', async (c, next) => {
     .first<{ expires_at: number }>();
   if (!s || s.expires_at < now()) return c.json({ error: 'Sessão expirada.' }, 401);
   await next();
+  // Depois de qualquer alteração, manda ao iCloud as tarefas com data que mudaram (em segundo plano)
+  if (c.req.method !== 'GET' && c.res.ok && !/^\/(events|agenda|auth|backup)/.test(c.req.path)) {
+    c.executionCtx.waitUntil(syncTasks(c.env, c.env.SITE_URL).catch((e) => console.log('sync', String(e))));
+  }
 });
 
 api.post('/auth/logout', async (c) => {
@@ -119,6 +129,7 @@ api.get('/boards', async (c) => {
 
 api.route('/', boards);
 api.route('/', details);
+api.route('/', agenda);
 
 api.post('/backup', async (c) => c.json(await runBackup(c.env)));
 
@@ -128,5 +139,6 @@ export default {
   fetch: app.fetch,
   async scheduled(_event: ScheduledController, env: Env, ctx: ExecutionContext) {
     ctx.waitUntil(runBackup(env).then((r) => console.log('backup', JSON.stringify(r))));
+    ctx.waitUntil(syncTasks(env, env.SITE_URL).then((r) => console.log('sync', JSON.stringify(r))).catch((e) => console.log('sync', String(e))));
   },
 } satisfies ExportedHandler<Env>;
