@@ -65,6 +65,13 @@
 		gap: 18px;
 		border-top: 2px solid var(--black);
 		padding-top: 16px;
+		background: var(--q-bg, transparent);
+		padding-inline: var(--q-pad, 0);
+		padding-bottom: var(--q-pad, 0);
+	}
+	.pt h1,
+	.pt h2 {
+		color: var(--q-text, inherit);
 	}
 	.pt.big {
 		border-top: 0;

@@ -1,7 +1,8 @@
 // Fase 7: Social Media — clientes, banco de temas, roteiros e modelos de roteiro
 import { Hono } from 'hono';
 import type { Env } from './index';
-import { MAX_FILE_BYTES, signedUrl, usedBytes } from './files';
+import { BRAND_COLORS, MAX_FILE_BYTES, signedUrl, usedBytes } from './files';
+import { createEvent, deleteEvent, updateEvent } from './caldav';
 
 const now = () => Math.floor(Date.now() / 1000);
 const newId = (p: string) => `${p}_${crypto.randomUUID().replace(/-/g, '').slice(0, 16)}`;
@@ -20,8 +21,8 @@ export function plainText(md: string) {
 }
 
 const FORMATS = ['reels', 'carrossel', 'estatico', 'stories', 'outro'];
-const THEME_STATUS = ['ideia', 'aprovado', 'roteirizado', 'postado', 'descartado'];
-const SCRIPT_STATUS = ['rascunho', 'revisao', 'aprovado', 'postado'];
+// Mesmos status para tema e roteiro (o roteiro e o tema dele andam juntos)
+const STATUS = ['ideia', 'aprovado', 'roteirizado', 'design', 'postado', 'descartado'];
 const FORMAT_NAME: Record<string, string> = { reels: 'Reels', carrossel: 'Carrossel', estatico: 'Post estático', stories: 'Stories', outro: 'Outro' };
 const CLIENT_TEXT = ['name', 'handle', 'niche', 'audience', 'voice', 'pillars', 'dos', 'donts', 'refs', 'notes'];
 
@@ -42,6 +43,11 @@ async function update(env: Env, table: string, id: string, body: Row, allowed: R
   await env.DB.prepare(`UPDATE ${table} SET ${sets.join(', ')} WHERE id = ?`).bind(...vals, id).run();
 }
 const text = (max: number) => (v: unknown) => String(v ?? '').slice(0, max);
+/** Cor HEX (#rgb ou #rrggbb); vazio ou inválido = sem cor (volta ao padrão) */
+const hex = (v: unknown) => {
+  const m = String(v ?? '').trim().replace(/^#?/, '#');
+  return /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(m) ? m.toLowerCase() : null;
+};
 const oneOf = (list: string[], fallback: string) => (v: unknown) => (list.includes(String(v)) ? String(v) : fallback);
 
 // ---------- Clientes ----------
@@ -68,7 +74,8 @@ social.post('/clients', async (c) => {
 
 social.get('/clients/:id', async (c) => {
   const id = c.req.param('id');
-  const client = await c.env.DB.prepare('SELECT * FROM clients WHERE id = ?').bind(id).first();
+  const client = await c.env.DB.prepare('SELECT * FROM clients WHERE id = ?').bind(id).first<Row>();
+  if (client) client.brand_logo = client.brand_logo_key ? await signedUrl(c.env, new URL(c.req.url).origin, client.brand_logo_key) : null;
   if (!client) return c.json({ error: 'Cliente não encontrado.' }, 404);
   const [themes, scripts] = await Promise.all([
     c.env.DB.prepare('SELECT * FROM themes WHERE client_id = ? ORDER BY position DESC, created_at DESC').bind(id).all(),
@@ -87,7 +94,38 @@ social.get('/clients/:id', async (c) => {
 social.patch('/clients/:id', async (c) => {
   const b = await c.req.json<Row>();
   if (b.name !== undefined && !String(b.name).trim()) delete b.name;
-  await update(c.env, 'clients', c.req.param('id'), b, Object.fromEntries(CLIENT_TEXT.map((k) => [k, text(k === 'name' ? 200 : 5000)])));
+  await update(c.env, 'clients', c.req.param('id'), b, {
+    ...Object.fromEntries(CLIENT_TEXT.map((k) => [k, text(k === 'name' ? 200 : 5000)])),
+    ...Object.fromEntries(BRAND_COLORS.map((k) => [k, hex])),
+  });
+  return c.json({ ok: true });
+});
+
+// ---------- Logotipo / capa da página do cliente ----------
+social.post('/clients/:id/logo', async (c) => {
+  const id = c.req.param('id');
+  const cl = await c.env.DB.prepare('SELECT brand_logo_key, brand_logo_size FROM clients WHERE id = ?').bind(id).first<Row>();
+  if (!cl) return c.json({ error: 'Cliente não encontrado.' }, 404);
+  const form = await c.req.formData();
+  const file = form.get('file');
+  if (!(file instanceof File)) return c.json({ error: 'Imagem ausente.' }, 400);
+  if (!/^image\/(png|jpe?g|webp|gif|svg\+xml)$/i.test(file.type)) return c.json({ error: 'Só imagens (PNG, JPG, WebP, GIF, SVG).' }, 415);
+  if (file.size > MAX_FILE_BYTES) return c.json({ error: 'Imagem maior que 5 MB.' }, 413);
+  if ((await usedBytes(c.env)) - (cl.brand_logo_size ?? 0) + file.size > Number(c.env.FILES_QUOTA_BYTES)) {
+    return c.json({ error: 'Espaço de arquivos do portal cheio (limite para não sair do plano gratuito).' }, 507);
+  }
+  const key = `clients/${id}/logo-${crypto.randomUUID().slice(0, 8)}`;
+  await c.env.FILES.put(key, file.stream(), { httpMetadata: { contentType: file.type } });
+  await c.env.DB.prepare('UPDATE clients SET brand_logo_key = ?, brand_logo_size = ?, updated_at = ? WHERE id = ?').bind(key, file.size, now(), id).run();
+  if (cl.brand_logo_key) await c.env.FILES.delete(cl.brand_logo_key);
+  return c.json({ url: await signedUrl(c.env, new URL(c.req.url).origin, key) });
+});
+
+social.delete('/clients/:id/logo', async (c) => {
+  const id = c.req.param('id');
+  const cl = await c.env.DB.prepare('SELECT brand_logo_key FROM clients WHERE id = ?').bind(id).first<Row>();
+  if (cl?.brand_logo_key) await c.env.FILES.delete(cl.brand_logo_key);
+  await c.env.DB.prepare('UPDATE clients SET brand_logo_key = NULL, brand_logo_size = 0, updated_at = ? WHERE id = ?').bind(now(), id).run();
   return c.json({ ok: true });
 });
 
@@ -130,14 +168,17 @@ social.post('/clients/:id/themes', async (c) => {
 });
 
 social.patch('/themes/:id', async (c) => {
-  await update(c.env, 'themes', c.req.param('id'), await c.req.json<Row>(), {
+  const b = await c.req.json<Row>();
+  await update(c.env, 'themes', c.req.param('id'), b, {
     title: text(500),
     notes: text(5000),
     pillar: text(200),
     format: oneOf(FORMATS, 'reels'),
-    status: oneOf(THEME_STATUS, 'ideia'),
+    status: oneOf(STATUS, 'ideia'),
     position: (v) => Number(v) || 0,
   });
+  if (STATUS.includes(b.status))
+    await c.env.DB.prepare('UPDATE scripts SET status = ?, updated_at = ? WHERE theme_id = ?').bind(b.status, now(), c.req.param('id')).run();
   return c.json({ ok: true });
 });
 
@@ -189,20 +230,74 @@ social.get('/scripts/:id', async (c) => {
   const imgs = (await c.env.DB.prepare('SELECT id, r2_key, caption, mime FROM script_images WHERE script_id = ? ORDER BY position, created_at').bind(c.req.param('id')).all<Row>()).results;
   const o = new URL(c.req.url).origin;
   const images = await Promise.all(imgs.map(async (i) => ({ id: i.id, caption: i.caption, mime: i.mime, url: await signedUrl(c.env, o, i.r2_key) })));
-  return c.json({ script: s, images });
+  const events = (await c.env.DB.prepare('SELECT kind, start FROM script_events WHERE script_id = ?').bind(c.req.param('id')).all<Row>()).results;
+  return c.json({ script: s, images, events });
 });
 
 social.patch('/scripts/:id', async (c) => {
-  await update(c.env, 'scripts', c.req.param('id'), await c.req.json<Row>(), {
+  const b = await c.req.json<Row>();
+  await update(c.env, 'scripts', c.req.param('id'), b, {
     title: text(500),
     body_md: text(100000),
     format: oneOf(FORMATS, 'reels'),
-    status: oneOf(SCRIPT_STATUS, 'rascunho'),
+    status: oneOf(STATUS, 'roteirizado'),
   });
+  if (STATUS.includes(b.status))
+    await c.env.DB.prepare('UPDATE themes SET status = ?, updated_at = ? WHERE id = (SELECT theme_id FROM scripts WHERE id = ?)').bind(b.status, now(), c.req.param('id')).run();
+  return c.json({ ok: true });
+});
+
+// ---------- Etapas do roteiro na agenda: criar o roteiro, enviar ao designer, publicar ----------
+const STEPS: Record<string, string> = { roteiro: 'Criar roteiro', design: 'Enviar ao designer', publicar: 'Publicar' };
+const uidOf = (href: string) => decodeURIComponent(href.split('/').pop() ?? '').replace(/\.ics$/, '');
+
+social.put('/scripts/:id/events/:kind', async (c) => {
+  const id = c.req.param('id');
+  const kind = c.req.param('kind');
+  if (!STEPS[kind]) return c.json({ error: 'Etapa inválida.' }, 400);
+  const start = Number((await c.req.json<Row>()).start);
+  if (!start) return c.json({ error: 'Escolha a data.' }, 400);
+  const s = await c.env.DB.prepare('SELECT s.title, s.format, s.client_id, cl.name AS client FROM scripts s JOIN clients cl ON cl.id = s.client_id WHERE s.id = ?')
+    .bind(id)
+    .first<Row>();
+  if (!s) return c.json({ error: 'Roteiro não encontrado.' }, 404);
+  const ev = {
+    title: `${STEPS[kind]} · ${s.title} (${s.client})`.slice(0, 300),
+    start,
+    end: start + 3600,
+    all_day: false,
+    notes: `${FORMAT_NAME[s.format] ?? s.format} · ${c.env.SITE_URL}/clientes/${s.client_id}`,
+    remind_min: 60,
+  };
+  const cur = await c.env.DB.prepare('SELECT href FROM script_events WHERE script_id = ? AND kind = ?').bind(id, kind).first<Row>();
+  try {
+    let href = cur?.href as string | undefined;
+    if (href) await updateEvent(c.env, href, uidOf(href), ev);
+    else href = (await createEvent(c.env, ev)).href;
+    await c.env.DB.prepare('INSERT OR REPLACE INTO script_events (script_id, kind, start, href) VALUES (?, ?, ?, ?)').bind(id, kind, start, href).run();
+    return c.json({ ok: true });
+  } catch (e) {
+    return c.json({ error: (e as Error).message }, 502);
+  }
+});
+
+social.delete('/scripts/:id/events/:kind', async (c) => {
+  const { id, kind } = c.req.param();
+  const cur = await c.env.DB.prepare('SELECT href FROM script_events WHERE script_id = ? AND kind = ?').bind(id, kind).first<Row>();
+  if (cur) {
+    try {
+      await deleteEvent(c.env, cur.href);
+    } catch (e) {
+      return c.json({ error: (e as Error).message }, 502);
+    }
+    await c.env.DB.prepare('DELETE FROM script_events WHERE script_id = ? AND kind = ?').bind(id, kind).run();
+  }
   return c.json({ ok: true });
 });
 
 social.delete('/scripts/:id', async (c) => {
+  const evs = (await c.env.DB.prepare('SELECT href FROM script_events WHERE script_id = ?').bind(c.req.param('id')).all<Row>()).results;
+  await Promise.all(evs.map((e) => deleteEvent(c.env, e.href).catch(() => {})));
   const keys = (await c.env.DB.prepare('SELECT r2_key FROM script_images WHERE script_id = ?').bind(c.req.param('id')).all<Row>()).results;
   await c.env.DB.prepare('DELETE FROM scripts WHERE id = ?').bind(c.req.param('id')).run();
   if (keys.length) await c.env.FILES.delete(keys.map((k) => k.r2_key));

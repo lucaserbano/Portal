@@ -3,6 +3,7 @@
 import { Hono } from 'hono';
 import type { Env } from './index';
 import { progress } from './details';
+import { brandOf } from './files';
 
 const now = () => Math.floor(Date.now() / 1000);
 type Row = Record<string, any>;
@@ -102,14 +103,15 @@ publicShare.get('/public/t/:token', async (c) => {
   if (!valid(tk)) return c.json({ error: 'Link inválido.' }, 404);
   const t = await c.env.DB.prepare('SELECT * FROM tasks WHERE share_token = ?').bind(tk).first<Row>();
   if (!t) return c.json({ error: 'Este link não está mais ativo.' }, 404);
+  const cl = t.client_id ? await c.env.DB.prepare('SELECT * FROM clients WHERE id = ?').bind(t.client_id).first<Row>() : null;
   c.header('Cache-Control', 'no-store');
-  return c.json({ task: await publicTask(c.env, t, !!t.share_desc), now: now() });
+  return c.json({ task: await publicTask(c.env, t, !!t.share_desc), brand: await brandOf(c.env, new URL(c.req.url).origin, cl), now: now() });
 });
 
 publicShare.get('/public/c/:token', async (c) => {
   const tk = c.req.param('token');
   if (!valid(tk)) return c.json({ error: 'Link inválido.' }, 404);
-  const cl = await c.env.DB.prepare('SELECT id, name FROM clients WHERE share_token = ? AND archived = 0').bind(tk).first<Row>();
+  const cl = await c.env.DB.prepare('SELECT * FROM clients WHERE share_token = ? AND archived = 0').bind(tk).first<Row>();
   if (!cl) return c.json({ error: 'Este link não está mais ativo.' }, 404);
   const rows = (
     await c.env.DB.prepare('SELECT * FROM tasks WHERE client_id = ? AND client_visible = 1 ORDER BY done_at IS NOT NULL, due_at IS NULL, due_at, created_at')
@@ -117,5 +119,5 @@ publicShare.get('/public/c/:token', async (c) => {
       .all<Row>()
   ).results;
   c.header('Cache-Control', 'no-store');
-  return c.json({ client: cl.name, tasks: await Promise.all(rows.map((t) => publicTask(c.env, t, !!t.share_desc))), now: now() });
+  return c.json({ client: cl.name, brand: await brandOf(c.env, new URL(c.req.url).origin, cl), tasks: await Promise.all(rows.map((t) => publicTask(c.env, t, !!t.share_desc))), now: now() });
 });

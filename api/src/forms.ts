@@ -1,6 +1,7 @@
 // Fase 6: formulários (construtor, link público, respostas, aviso por e-mail, Google Forms, tarefa a partir da resposta)
 import { Hono } from 'hono';
 import type { Env } from './index';
+import { brandOf } from './files';
 import { sha256 } from './auth';
 
 const now = () => Math.floor(Date.now() / 1000);
@@ -231,6 +232,7 @@ forms.patch('/forms/:id', async (c) => {
   if (b.notify !== undefined) set('notify', b.notify ? 1 : 0);
   if (b.title_field !== undefined) set('title_field', b.title_field || null);
   if (b.due_field !== undefined) set('due_field', b.due_field || null);
+  if (b.client_id !== undefined) set('client_id', b.client_id || null);
   if (b.slug !== undefined) {
     const s = slugify(String(b.slug));
     const taken = await c.env.DB.prepare('SELECT id FROM forms WHERE slug = ? AND id != ?').bind(s, c.req.param('id')).first();
@@ -356,11 +358,13 @@ forms.post('/responses/:id/task', async (c) => {
 export const publicForms = new Hono<{ Bindings: Env }>();
 
 publicForms.get('/public/forms/:slug', async (c) => {
-  const f = await c.env.DB.prepare('SELECT title, description, fields, open, thanks FROM forms WHERE slug = ? AND archived = 0')
+  const f = await c.env.DB.prepare('SELECT title, description, fields, open, thanks, client_id FROM forms WHERE slug = ? AND archived = 0')
     .bind(c.req.param('slug'))
     .first<Row>();
   if (!f) return c.json({ error: 'Formulário não encontrado.' }, 404);
-  return c.json({ form: { ...f, fields: JSON.parse(f.fields), open: !!f.open } });
+  const cl = f.client_id ? await c.env.DB.prepare('SELECT * FROM clients WHERE id = ?').bind(f.client_id).first<Row>() : null;
+  const { client_id, ...pub } = f;
+  return c.json({ form: { ...pub, fields: JSON.parse(f.fields), open: !!f.open }, brand: await brandOf(c.env, new URL(c.req.url).origin, cl) });
 });
 
 publicForms.post('/public/forms/:slug', async (c) => {

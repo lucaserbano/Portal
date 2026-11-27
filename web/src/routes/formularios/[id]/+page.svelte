@@ -18,6 +18,7 @@
 		thanks: string;
 		title_field: string | null;
 		due_field: string | null;
+		client_id: string | null;
 	};
 	type Answer = { id: string; label: string; value: string | string[] };
 	type Resp = { id: string; answers: Answer[]; source: string; read_at: number | null; task_id: string | null; task_title: string | null; created_at: number };
@@ -28,6 +29,8 @@
 	let emailReady = $state(false);
 	let responses = $state<Resp[]>([]);
 	let tab = $state<'perguntas' | 'respostas' | 'ajustes'>('perguntas');
+	let clients = $state<{ id: string; name: string }[]>([]);
+	api<{ clients: { id: string; name: string }[] }>('/clients').then((d) => (clients = d.clients));
 	let error = $state('');
 	let saved = $state<'' | 'salvando…' | 'salvo'>('');
 	let flash = $state('');
@@ -452,6 +455,21 @@
 					<option value="">sem prazo</option>
 					{#each dateFields as f (f.id)}<option value={f.id}>a data respondida em “{f.label || 'sem título'}”</option>{/each}
 				</select>
+			</dd>
+
+			<dt>marca</dt>
+			<dd>
+				<select
+					value={form.client_id ?? ''}
+					onchange={(e) => {
+						form!.client_id = e.currentTarget.value || null;
+						patch({ client_id: form!.client_id });
+					}}
+				>
+					<option value="">padrão do πύλη</option>
+					{#each clients as cl (cl.id)}<option value={cl.id}>{cl.name}</option>{/each}
+				</select>
+				<p class="meta">Cores e logotipo do cliente (cliente → perfil → marca).</p>
 			</dd>
 
 			<dt>mensagem final</dt>

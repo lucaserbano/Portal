@@ -7,12 +7,26 @@
 		['outro', 'Outro']
 	] as const;
 	export const formatName = (f: string) => FORMATS.find((x) => x[0] === f)?.[1] ?? f;
-	export const SCRIPT_STATUS = [
-		['rascunho', 'rascunho'],
-		['revisao', 'em revisão'],
+	/** Uma cor por formato, para bater o olho e saber o tipo de postagem */
+	export const FORMAT_COLOR: Record<string, string> = {
+		reels: '#2b6cff',
+		carrossel: '#1f9d55',
+		estatico: '#ff7a00',
+		stories: '#7c5cff',
+		outro: '#808080'
+	};
+	export const formatColor = (f: string) => FORMAT_COLOR[f] ?? '#808080';
+	/** Os mesmos status para tema e roteiro */
+	export const STATUS = [
+		['ideia', 'ideia'],
 		['aprovado', 'aprovado'],
-		['postado', 'postado']
+		['roteirizado', 'roteirizado'],
+		['design', 'design pronto'],
+		['postado', 'postado'],
+		['descartado', 'descartado']
 	] as const;
+	export const statusName = (v: string) => STATUS.find((x) => x[0] === v)?.[1] ?? v;
+	export const SCRIPT_STATUS = STATUS;
 	export type ClientProfile = {
 		name: string;
 		handle: string;
@@ -71,6 +85,53 @@
 	};
 	type Img = { id: string; caption: string; url: string; mime: string | null };
 	let s = $state<Script | null>(null);
+	// ---------- Etapas na agenda ----------
+	const STEPS = [
+		['roteiro', 'criar roteiro'],
+		['design', 'enviar ao designer'],
+		['publicar', 'publicar']
+	] as const;
+	let events = $state<Record<string, number>>({});
+	let stepBusy = $state('');
+	const toLocal = (t: number) => {
+		const d = new Date(t * 1000);
+		const p = (n: number) => String(n).padStart(2, '0');
+		return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
+	};
+	async function setStep(kind: string, v: string) {
+		if (!v) return;
+		const start = Math.floor(new Date(v).getTime() / 1000);
+		if (!start) return;
+		stepBusy = kind;
+		try {
+			await api(`/scripts/${id}/events/${kind}`, { method: 'PUT', body: JSON.stringify({ start }) });
+			events[kind] = start;
+			say('na agenda ✓');
+		} catch (e) {
+			say((e as Error).message);
+		} finally {
+			stepBusy = '';
+		}
+	}
+	async function removeStep(kind: string) {
+		stepBusy = kind;
+		try {
+			await api(`/scripts/${id}/events/${kind}`, { method: 'DELETE' });
+			delete events[kind];
+			say('tirado da agenda');
+		} catch (e) {
+			say((e as Error).message);
+		} finally {
+			stepBusy = '';
+		}
+	}
+	// sugestão de horário: amanhã às 9h
+	const tomorrow9 = () => {
+		const d = new Date();
+		d.setDate(d.getDate() + 1);
+		d.setHours(9, 0, 0, 0);
+		return toLocal(d.getTime() / 1000);
+	};
 	let images = $state<Img[]>([]);
 	let uploading = $state(0);
 	let editorRef = $state<any>(null);
@@ -86,9 +147,10 @@
 	import('./Editor.svelte').then((m) => (Editor = m.default));
 
 	$effect(() => {
-		Promise.all([api<{ script: Script; images: Img[] }>(`/scripts/${id}`), api<{ people: { id: string; name: string }[] }>('/people')]).then(([a, b]) => {
+		Promise.all([api<{ script: Script; images: Img[]; events: { kind: string; start: number }[] }>(`/scripts/${id}`), api<{ people: { id: string; name: string }[] }>('/people')]).then(([a, b]) => {
 			s = a.script;
 			images = a.images;
+			events = Object.fromEntries((a.events ?? []).map((e) => [e.kind, e.start]));
 			people = b.people;
 		});
 	});
@@ -282,6 +344,7 @@
 		</div>
 
 		<div class="row">
+			<span class="fdot" style:background={formatColor(s.format)}></span>
 			<select value={s.format} onchange={(e) => save({ format: e.currentTarget.value })} aria-label="Formato">
 				{#each FORMATS as [v, n] (v)}<option value={v}>{n}</option>{/each}
 			</select>
@@ -291,6 +354,27 @@
 				{/each}
 			</span>
 		</div>
+
+		<section class="steps" aria-label="Agenda">
+			<p class="meta">agenda · cria o evento no calendário πύλη, com aviso 1 h antes</p>
+			{#each STEPS as [k, n] (k)}
+				<div class="step" class:set={!!events[k]}>
+					<span class="label">{n}</span>
+					<input
+						type="datetime-local"
+						class="when"
+						value={events[k] ? toLocal(events[k]) : ''}
+						onfocus={(e) => !e.currentTarget.value && (e.currentTarget.value = tomorrow9())}
+						onchange={(e) => setStep(k, e.currentTarget.value)}
+						disabled={stepBusy === k}
+						aria-label="Data: {n}"
+					/>
+					{#if stepBusy === k}<span class="meta">…</span>
+					{:else if events[k]}<button class="link" onclick={() => removeStep(k)}>tirar</button>
+					{:else}<span class="meta">—</span>{/if}
+				</div>
+			{/each}
+		</section>
 
 		<nav class="actions">
 			<button onclick={copy}>{copied ? 'copiado ✓' : 'copiar texto'}</button>
@@ -441,6 +525,46 @@
 	.seg {
 		display: flex;
 		flex-wrap: wrap;
+	}
+	.fdot {
+		width: 12px;
+		height: 12px;
+		flex: none;
+		align-self: center;
+	}
+	.steps {
+		display: grid;
+		border-top: var(--rule);
+		padding-top: 8px;
+		gap: 2px;
+	}
+	.step {
+		display: grid;
+		grid-template-columns: 150px 1fr 44px;
+		gap: 10px;
+		align-items: center;
+		padding: 4px 0;
+		border-bottom: var(--rule-soft);
+	}
+	.step.set .label::before {
+		content: '● ';
+		color: var(--accent);
+	}
+	.when {
+		border: 0;
+		background: transparent;
+		padding: 6px 0;
+		min-width: 0;
+		font-family: var(--mono);
+		font-size: var(--t-sm);
+	}
+	.step .link {
+		background: none;
+		border: 0;
+		padding: 0;
+		text-decoration: underline;
+		cursor: pointer;
+		font-size: var(--t-sm);
 	}
 	.seg button {
 		border: var(--rule);

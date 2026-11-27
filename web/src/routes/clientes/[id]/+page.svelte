@@ -4,11 +4,12 @@
 	import { resolve } from '$app/paths';
 	import { api } from '#lib/api.ts';
 	import { fmtShort, plural } from '#lib/model.ts';
-	import ScriptPanel, { FORMATS, SCRIPT_STATUS, claudeLink, formatName, profileText, type ClientProfile } from '#lib/components/ScriptPanel.svelte';
+	import ScriptPanel, { FORMATS, STATUS, claudeLink, formatColor, formatName, profileText, statusName, type ClientProfile } from '#lib/components/ScriptPanel.svelte';
 	import TaskPanel from '#lib/components/TaskPanel.svelte';
 	import Destination from '#lib/components/Destination.svelte';
 
-	type Client = ClientProfile & { id: string; notes: string };
+	type BrandKey = 'brand_text' | 'brand_bg' | 'brand_section' | 'brand_question' | 'brand_accent';
+	type Client = ClientProfile & { id: string; notes: string; brand_logo: string | null } & Record<BrandKey, string | null>;
 	type Theme = { id: string; title: string; notes: string; pillar: string; format: string; status: string; task_id: string | null; created_at: number };
 	type Script = { id: string; theme_id: string | null; title: string; format: string; status: string; task_id: string | null; updated_at: number; excerpt: string; images: number };
 	type Tpl = { id: string; name: string; format: string };
@@ -64,41 +65,48 @@
 		['niche', 'nicho / o que faz', 'ex.: clínica de estética em Curitiba'],
 		['audience', 'público', 'quem segue e quem queremos atingir'],
 		['voice', 'tom de voz', 'ex.: próximo, leve, sem jargão técnico, frases curtas'],
-		['pillars', 'pilares de conteúdo', 'um por linha: educativo, bastidores, prova social…'],
+		['pillars', 'linhas editoriais', 'uma por linha: educativo, bastidores, prova social…'],
 		['dos', 'fazer / palavras que usa', 'expressões, emojis, assuntos bem-vindos'],
 		['donts', 'evitar', 'assuntos, palavras ou formatos proibidos'],
 		['refs', 'referências', 'links de perfis ou posts, um por linha'],
 		['notes', 'observações', '']
 	];
-	const pillars = $derived(client?.pillars.split('\n').map((x) => x.trim()).filter(Boolean) ?? []);
+	// linhas editoriais: as do perfil + as que já aparecem nos temas ("Vendas, Educação" conta nas duas)
+	const linesOf = (p: string) => p.split(',').map((x) => x.trim()).filter(Boolean);
+	const pillars = $derived(
+		[...new Set([...(client?.pillars.split('\n') ?? []).map((x) => x.trim()).filter(Boolean), ...themes.flatMap((t) => linesOf(t.pillar))])].sort((a, b) =>
+			a.localeCompare(b, 'pt-BR')
+		)
+	);
+	const hasLine = (t: Theme, l: string) => linesOf(t.pillar).includes(l);
 
 	// ---------- Temas ----------
 	let newTitle = $state('');
 	let newFormat = $state('reels');
+	let newPillar = $state('');
+	let typingPillar = $state<string | null>(null); // onde está digitando uma linha nova
 	let bulk = $state(false);
 	let bulkText = $state('');
-	let themeFilter = $state<'fila' | 'roteirizado' | 'postado' | 'descartado' | 'todos'>('fila');
+	let themeFilter = $state<string>('abertos'); // status
+	let pillarFilter = $state(''); // linha editorial ('' = todas)
+	let formatFilter = $state(''); // formato ('' = todos)
 	let openTheme = $state<string | null>(null);
 	let taskFor = $state<string | null>(null);
 
-	const THEME_STATUS = [
-		['ideia', 'ideia'],
-		['aprovado', 'aprovado'],
-		['roteirizado', 'roteirizado'],
-		['postado', 'postado'],
-		['descartado', 'descartado']
-	] as const;
-	const shownThemes = $derived(
-		themes.filter((t) => (themeFilter === 'todos' ? true : themeFilter === 'fila' ? t.status === 'ideia' || t.status === 'aprovado' : t.status === themeFilter))
-	);
-	const countBy = (k: string) => (k === 'fila' ? themes.filter((t) => t.status === 'ideia' || t.status === 'aprovado').length : k === 'todos' ? themes.length : themes.filter((t) => t.status === k).length);
+	const isOpen = (st: string) => st !== 'postado' && st !== 'descartado';
+	const byStatus = (st: string, k: string) => (k === 'todos' ? true : k === 'abertos' ? isOpen(st) : st === k);
+	// os filtros se somam: status + linha editorial + formato
+	const themesPF = $derived(themes.filter((t) => (!pillarFilter || hasLine(t, pillarFilter)) && (!formatFilter || t.format === formatFilter)));
+	const shownThemes = $derived(themesPF.filter((t) => byStatus(t.status, themeFilter)));
+	const countBy = (k: string) => themesPF.filter((t) => byStatus(t.status, k)).length;
+	const STATUS_FILTERS = [['abertos', 'em aberto'], ...STATUS, ['todos', 'todos']] as const;
 
 	async function addTheme(e: SubmitEvent) {
 		e.preventDefault();
 		if (!newTitle.trim()) return;
 		const title = newTitle;
 		newTitle = '';
-		await api(`/clients/${cid}/themes`, { method: 'POST', body: JSON.stringify({ title, format: newFormat }) });
+		await api(`/clients/${cid}/themes`, { method: 'POST', body: JSON.stringify({ title, format: newFormat, pillar: newPillar.trim() }) });
 		await load();
 	}
 
@@ -154,7 +162,7 @@
 	// ---------- Roteiros ----------
 	let tplId = $state('');
 	let scriptFilter = $state<string>('abertos');
-	const shownScripts = $derived(scripts.filter((s) => (scriptFilter === 'todos' ? true : scriptFilter === 'abertos' ? s.status !== 'postado' : s.status === scriptFilter)));
+	const shownScripts = $derived(scripts.filter((s) => byStatus(s.status, scriptFilter)));
 	async function newScript(theme?: Theme) {
 		const { id } = await api<{ id: string }>(`/clients/${cid}/scripts`, {
 			method: 'POST',
@@ -163,8 +171,49 @@
 		await load();
 		openScript = id;
 	}
-	const statusName = (s: string) => SCRIPT_STATUS.find((x) => x[0] === s)?.[1] ?? s;
 	const themeTitle = (id: string | null) => themes.find((t) => t.id === id)?.title;
+
+	// ---------- Marca (manual de marca): cores e logotipo das páginas que o cliente vê ----------
+	const BRAND: [BrandKey, string, string][] = [
+		['brand_text', 'textos', '#000000'],
+		['brand_bg', 'plano de fundo', '#ffffff'],
+		['brand_section', 'fundo das perguntas', '#ffffff'],
+		['brand_question', 'texto das perguntas', '#000000'],
+		['brand_accent', 'destaque', '#ff006f']
+	];
+	const normHex = (v: string) => {
+		const m = v.trim().replace(/^#?/, '#');
+		return /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(m) ? m.toLowerCase() : '';
+	};
+	// o seletor nativo só entende #rrggbb
+	const full = (v: string) => (v.length === 4 ? '#' + [...v.slice(1)].map((c) => c + c).join('') : v);
+	async function setBrand(k: BrandKey, v: string) {
+		const h = normHex(v);
+		if (v.trim() && !h) return say('cor inválida: use o código HEX, ex. #1a2b3c');
+		await saveClient({ [k]: h || null } as Partial<Client>);
+	}
+	let logoBusy = $state(false);
+	async function uploadLogo(f: File | undefined) {
+		if (!f) return;
+		if (f.size > 5 * 1024 * 1024) return say('imagem maior que 5 MB');
+		logoBusy = true;
+		try {
+			const fd = new FormData();
+			fd.append('file', f, f.name || 'logo.png');
+			const r = await api<{ url: string }>(`/clients/${cid}/logo`, { method: 'POST', body: fd });
+			if (client) client.brand_logo = r.url;
+			say('logotipo salvo');
+		} catch (e) {
+			say((e as Error).message);
+		} finally {
+			logoBusy = false;
+		}
+	}
+	async function removeLogo() {
+		await api(`/clients/${cid}/logo`, { method: 'DELETE' });
+		if (client) client.brand_logo = null;
+		say('logotipo removido');
+	}
 
 	// ---------- Página do cliente (link público com as tarefas visíveis) ----------
 	type ShareTask = { id: string; title: string; client_visible: number; done_at: number | null; due_at: number | null };
@@ -199,6 +248,43 @@
 	const ideasUrl = $derived(claudeLink(ideasPrompt));
 </script>
 
+{#snippet pillarPick(key: string, value: string, set: (v: string) => void)}
+	{#if typingPillar === key}
+		<input
+			class="field pick"
+			placeholder="nova linha editorial"
+			autofocus
+			onkeydown={(e) => {
+				if (e.key === 'Enter') (e.preventDefault(), e.currentTarget.blur());
+				if (e.key === 'Escape') typingPillar = null;
+			}}
+			onblur={(e) => {
+				const v = e.currentTarget.value.trim();
+				if (v) set(v);
+				typingPillar = null;
+			}}
+		/>
+	{:else}
+		<select
+			class="pick"
+			{value}
+			aria-label="Linha editorial"
+			onchange={(e) => {
+				const v = e.currentTarget.value;
+				if (v === '__new') {
+					e.currentTarget.value = value;
+					typingPillar = key;
+				} else set(v);
+			}}
+		>
+			<option value="">sem linha editorial</option>
+			{#if value && !pillars.includes(value)}<option {value}>{value}</option>{/if}
+			{#each pillars as p (p)}<option value={p}>{p}</option>{/each}
+			<option value="__new">+ nova linha…</option>
+		</select>
+	{/if}
+{/snippet}
+
 <p class="back meta"><a href={resolve('/clientes')}>← clientes</a></p>
 
 {#if error}
@@ -216,7 +302,7 @@
 	</section>
 
 	<nav class="tabs">
-		<button class:on={tab === 'temas'} onclick={() => (tab = 'temas')}>temas <span class="meta">{countBy('fila')}</span></button>
+		<button class:on={tab === 'temas'} onclick={() => (tab = 'temas')}>temas <span class="meta">{themes.filter((t) => isOpen(t.status)).length}</span></button>
 		<button class:on={tab === 'roteiros'} onclick={() => (tab = 'roteiros')}>roteiros <span class="meta">{scripts.length}</span></button>
 		<button class:on={tab === 'perfil'} onclick={() => (tab = 'perfil')}>perfil</button>
 	</nav>
@@ -227,6 +313,7 @@
 			<select bind:value={newFormat} aria-label="Formato">
 				{#each FORMATS as [v, n] (v)}<option value={v}>{n}</option>{/each}
 			</select>
+			{@render pillarPick('novo', newPillar, (v) => (newPillar = v))}
 			<button class="btn dark" disabled={!newTitle.trim()}>adicionar</button>
 		</form>
 		<div class="tools">
@@ -248,18 +335,34 @@
 		{/if}
 
 		<div class="filters">
-			{#each [['fila', 'na fila'], ['roteirizado', 'roteirizados'], ['postado', 'postados'], ['descartado', 'descartados'], ['todos', 'todos']] as [k, n] (k)}
-				<button class:on={themeFilter === k} onclick={() => (themeFilter = k as typeof themeFilter)}>{n} <span class="meta">{countBy(k)}</span></button>
+			{#each STATUS_FILTERS as [k, n] (k)}
+				<button class:on={themeFilter === k} onclick={() => (themeFilter = k)}>{n} <span class="meta">{countBy(k)}</span></button>
 			{/each}
 		</div>
+		<div class="filters fmt">
+			{#each FORMATS as [v, n] (v)}
+				<button class:on={formatFilter === v} onclick={() => (formatFilter = formatFilter === v ? '' : v)}
+					><i class="fsq" style:background={formatColor(v)}></i>{n} <span class="meta">{themes.filter((t) => t.format === v).length}</span></button
+				>
+			{/each}
+		</div>
+		{#if pillars.length}
+			<div class="filters lines">
+				<span class="meta">linha editorial</span>
+				<button class:on={!pillarFilter} onclick={() => (pillarFilter = '')}>todas</button>
+				{#each pillars as p (p)}
+					<button class:on={pillarFilter === p} onclick={() => (pillarFilter = pillarFilter === p ? '' : p)}>{p} <span class="meta">{themes.filter((t) => hasLine(t, p)).length}</span></button>
+				{/each}
+			</div>
+		{/if}
 
 		<ul class="themes">
 			{#each shownThemes as t (t.id)}
-				<li class="theme" class:open={openTheme === t.id} class:off={t.status === 'descartado' || t.status === 'postado'}>
+				<li class="theme" class:open={openTheme === t.id} class:off={t.status === 'descartado' || t.status === 'postado'} style:--fc={formatColor(t.format)}>
 					<button class="trow" onclick={() => (openTheme = openTheme === t.id ? null : t.id)}>
 						<span class="tt">{t.title}</span>
-						<span class="meta">{formatName(t.format)}{t.pillar ? ` · ${t.pillar}` : ''}</span>
-						<span class="st meta st-{t.status}">{t.status}</span>
+						<span class="meta"><b class="fname">{formatName(t.format)}</b>{t.pillar ? ` · ${t.pillar}` : ''}</span>
+						<span class="st meta st-{t.status}">{statusName(t.status)}</span>
 					</button>
 					{#if openTheme === t.id}
 						<div class="tedit">
@@ -269,10 +372,10 @@
 								<select value={t.format} onchange={(e) => patchTheme(t, { format: e.currentTarget.value })} aria-label="Formato">
 									{#each FORMATS as [v, n] (v)}<option value={v}>{n}</option>{/each}
 								</select>
-								<input class="field pillar" list="pillars-{cid}" placeholder="pilar" value={t.pillar} onchange={(e) => patchTheme(t, { pillar: e.currentTarget.value })} />
+								{@render pillarPick(t.id, t.pillar, (v) => patchTheme(t, { pillar: v }))}
 							</div>
 							<div class="seg">
-								{#each THEME_STATUS as [v, n] (v)}<button class:on={t.status === v} onclick={() => patchTheme(t, { status: v })}>{n}</button>{/each}
+								{#each STATUS as [v, n] (v)}<button class:on={t.status === v} onclick={() => patchTheme(t, { status: v })}>{n}</button>{/each}
 							</div>
 							<div class="tact">
 								<select bind:value={tplId} aria-label="Modelo do roteiro">
@@ -301,7 +404,6 @@
 				<li class="meta empty">nenhum tema aqui</li>
 			{/each}
 		</ul>
-		<datalist id="pillars-{cid}">{#each pillars as p (p)}<option value={p}></option>{/each}</datalist>
 	{:else if tab === 'roteiros'}
 		<div class="add">
 			<select bind:value={tplId} aria-label="Modelo">
@@ -312,15 +414,15 @@
 			<a class="link" href={resolve('/clientes/modelos')}>editar modelos</a>
 		</div>
 		<div class="filters">
-			{#each [['abertos', 'em aberto'], ...SCRIPT_STATUS, ['todos', 'todos']] as [k, n] (k)}
-				<button class:on={scriptFilter === k} onclick={() => (scriptFilter = k)}>{n}</button>
+			{#each STATUS_FILTERS as [k, n] (k)}
+				<button class:on={scriptFilter === k} onclick={() => (scriptFilter = k)}>{n} <span class="meta">{scripts.filter((x) => byStatus(x.status, k)).length}</span></button>
 			{/each}
 		</div>
 		<ul class="scripts">
 			{#each shownScripts as s (s.id)}
 				<li>
-					<button class="scard" onclick={() => (openScript = s.id)}>
-						<span class="meta">{formatName(s.format)} · <span class="st-{s.status}">{statusName(s.status)}</span></span>
+					<button class="scard" onclick={() => (openScript = s.id)} style:--fc={formatColor(s.format)}>
+						<span class="meta"><b class="fname">{formatName(s.format)}</b> · <span class="st-{s.status}">{statusName(s.status)}</span></span>
 						<span class="tt">{s.title}</span>
 						{#if themeTitle(s.theme_id) && themeTitle(s.theme_id) !== s.title}<span class="meta">tema: {themeTitle(s.theme_id)}</span>{/if}
 						<span class="ex">{s.excerpt}</span>
@@ -345,6 +447,29 @@
 					{/if}
 				</dd>
 			{/each}
+			<dt>marca</dt>
+			<dd class="brand">
+				<p class="meta">Cores e logotipo do manual de marca, nos formulários e na página de acompanhamento. O que ficar vazio usa o padrão do πύλη.</p>
+				{#each BRAND as [k, label, ph] (k)}
+					<div class="crow">
+						<input type="color" class="swatch" class:empty={!client[k]} value={full(client[k] ?? ph)} aria-label={label}
+							onchange={(e) => setBrand(k, e.currentTarget.value)} />
+						<input class="field hex" value={client[k] ?? ''} placeholder={ph} spellcheck="false" autocomplete="off"
+							onchange={(e) => setBrand(k, e.currentTarget.value)} />
+						<span class="label">{label}</span>
+						{#if client[k]}<button class="link" onclick={() => setBrand(k, '')}>limpar</button>{/if}
+					</div>
+				{/each}
+				<div class="logo">
+					{#if client.brand_logo}<img src={client.brand_logo} alt="logotipo" />{/if}
+					<div class="row">
+						<label class="btn">{logoBusy ? 'enviando…' : client.brand_logo ? 'trocar logotipo' : 'enviar logotipo'}<input type="file" accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml" hidden onchange={(e) => (uploadLogo(e.currentTarget.files?.[0]), (e.currentTarget.value = ''))} /></label>
+						{#if client.brand_logo}<button class="link danger" onclick={removeLogo}>remover</button>{/if}
+					</div>
+					<p class="meta">Aparece no topo da página do cliente e dos formulários com esta marca (escolha a marca nos ajustes do formulário).</p>
+				</div>
+			</dd>
+
 			<dt>página do cliente</dt>
 			<dd class="share">
 				<p class="meta">Um link para o cliente acompanhar as tarefas dele: etapa, prazo, progresso e o que já foi feito. Ligue uma tarefa a este cliente no painel da tarefa → “cliente”.</p>
@@ -520,6 +645,36 @@
 	}
 	.theme {
 		border-bottom: var(--rule-soft);
+		border-left: 4px solid var(--fc, var(--grey));
+	}
+	.theme .trow,
+	.theme .tedit {
+		padding-left: 12px;
+	}
+	.fname {
+		font-weight: 600;
+		color: var(--fc, inherit);
+	}
+	.fsq {
+		display: inline-block;
+		width: 10px;
+		height: 10px;
+		margin-right: 6px;
+		vertical-align: -1px;
+	}
+	.filters .meta {
+		color: inherit;
+		opacity: 0.7;
+	}
+	.lines {
+		align-items: baseline;
+	}
+	.pick {
+		max-width: 220px;
+	}
+	input.pick {
+		width: 200px;
+		padding: 6px 0;
 	}
 	.theme.open {
 		border-bottom: var(--rule);
@@ -554,9 +709,12 @@
 	.st-ideia {
 		color: var(--grey);
 	}
-	.st-roteirizado,
-	.st-revisao {
+	.st-roteirizado {
 		color: var(--accent);
+	}
+	.st-design {
+		color: var(--accent);
+		font-weight: 600;
 	}
 	.tedit {
 		display: grid;
@@ -572,11 +730,6 @@
 		gap: 10px;
 		align-items: center;
 		flex-wrap: wrap;
-	}
-	.pillar {
-		flex: 1;
-		min-width: 140px;
-		padding: 6px 0;
 	}
 	.seg {
 		display: flex;
@@ -633,6 +786,7 @@
 		text-align: left;
 		cursor: pointer;
 		min-height: 150px;
+		box-shadow: inset 0 4px 0 var(--fc, transparent);
 	}
 	.scard .tt {
 		font-size: var(--t-lg);
@@ -691,9 +845,50 @@
 	.profile .field {
 		padding: 6px 0;
 	}
-	.share {
+	.share,
+	.brand {
 		display: grid;
 		gap: 8px;
+	}
+	.crow {
+		display: grid;
+		grid-template-columns: 34px 110px 1fr auto;
+		gap: 10px;
+		align-items: center;
+	}
+	.swatch {
+		width: 34px;
+		height: 34px;
+		padding: 0;
+		border: var(--rule);
+		background: none;
+		cursor: pointer;
+	}
+	.swatch::-webkit-color-swatch-wrapper {
+		padding: 0;
+	}
+	.swatch::-webkit-color-swatch {
+		border: 0;
+	}
+	.swatch.empty {
+		opacity: 0.25;
+	}
+	.hex {
+		font-family: var(--mono);
+		text-transform: lowercase;
+	}
+	.logo {
+		display: grid;
+		gap: 8px;
+		margin-top: 6px;
+	}
+	.logo img {
+		max-width: 100%;
+		max-height: 120px;
+		object-fit: contain;
+		object-position: left center;
+		justify-self: start;
+		border: var(--rule-soft);
 	}
 	.url {
 		overflow-wrap: anywhere;

@@ -2,11 +2,13 @@
 	// Página pública do formulário: o cliente abre sem login
 	import { page } from '$app/state';
 	import FormFields, { type Field } from '#lib/components/FormFields.svelte';
+	import { applyBrand, type Brand } from '#lib/brand.ts';
 
 	const API = import.meta.env.VITE_API_URL as string;
 	type PublicForm = { title: string; description: string; fields: Field[]; open: boolean; thanks: string };
 
 	let form = $state<PublicForm | null>(null);
+	let brand = $state<Brand | null>(null);
 	let values = $state<Record<string, string | string[]>>({});
 	let website = $state(''); // campo-isca para robôs
 	let error = $state('');
@@ -17,7 +19,10 @@
 	fetch(`${API}/public/forms/${encodeURIComponent(page.params.slug!)}`)
 		.then(async (r) => {
 			if (!r.ok) return (notFound = true);
-			form = (await r.json()).form;
+			const d = await r.json();
+			form = d.form;
+			brand = d.brand;
+			applyBrand(brand);
 			document.title = form!.title;
 		})
 		.catch(() => (error = 'Sem conexão. Tente recarregar a página.'));
@@ -48,6 +53,7 @@
 </script>
 
 <main class="pub">
+	{#if brand?.logo}<img class="logo" src={brand.logo} alt="" />{/if}
 	{#if notFound}
 		<h1 class="title-lg">Formulário não encontrado.</h1>
 		<p class="label grey">Confira o link com quem enviou.</p>
@@ -147,6 +153,13 @@
 		text-underline-offset: 3px;
 		cursor: pointer;
 		font-size: var(--t-sm);
+	}
+	.logo {
+		display: block;
+		max-width: 100%;
+		max-height: 140px;
+		object-fit: contain;
+		object-position: left center;
 	}
 	footer {
 		margin-top: 30px;

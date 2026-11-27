@@ -115,10 +115,13 @@
 		padding-top: 12px;
 		display: grid;
 		gap: 6px;
+		color: var(--q-text, inherit);
 	}
 	.q {
 		display: grid;
 		gap: 8px;
+		background: var(--q-bg, transparent);
+		padding: var(--q-pad, 0);
 	}
 	.ql {
 		display: grid;
@@ -127,6 +130,7 @@
 		font-size: var(--t-md);
 		font-weight: 500;
 		align-items: baseline;
+		color: var(--q-text, inherit);
 	}
 	.req {
 		color: var(--accent);

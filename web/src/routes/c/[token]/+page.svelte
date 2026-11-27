@@ -2,14 +2,16 @@
 	// Página pública: o cliente acompanha as tarefas dele
 	import { page } from '$app/state';
 	import PublicTask, { type PubTask } from '#lib/components/PublicTask.svelte';
+	import { applyBrand, type Brand } from '#lib/brand.ts';
 	const API = import.meta.env.VITE_API_URL as string;
-	let data = $state<{ client: string; tasks: PubTask[] } | null>(null);
+	let data = $state<{ client: string; brand: Brand | null; tasks: PubTask[] } | null>(null);
 	let error = $state('');
 	fetch(`${API}/public/c/${encodeURIComponent(page.params.token!)}`)
 		.then(async (r) => {
 			const d = await r.json();
 			if (!r.ok) throw new Error(d.error ?? 'Link inválido.');
 			data = d;
+			applyBrand(d.brand);
 			document.title = d.client;
 		})
 		.catch((e) => (error = e.message === 'Failed to fetch' ? 'Sem conexão. Tente recarregar.' : e.message));
@@ -20,6 +22,7 @@
 <main class="pub">
 	{#if data}
 		<header>
+			{#if data.brand?.logo}<img class="logo" src={data.brand.logo} alt={data.client} />{/if}
 			<p class="meta">acompanhamento</p>
 			<h1 class="title-xl">{data.client}</h1>
 			<p class="label grey">{open.length} em andamento · {closed.length} concluídas</p>
@@ -58,6 +61,13 @@
 	.sec {
 		color: var(--grey);
 		margin-bottom: -20px;
+	}
+	.logo {
+		display: block;
+		max-width: 100%;
+		max-height: 140px;
+		object-fit: contain;
+		object-position: left center;
 	}
 	footer {
 		border-top: var(--rule-soft);
