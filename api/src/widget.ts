@@ -49,23 +49,42 @@ widgetPublic.get('/widget', async (c) => {
   if (!saved || !k || (await sha256(k)) !== saved.value) return c.json({ error: 'Token do widget inválido. Gere outro no portal (ajustes).' }, 401);
 
   const t0 = todayStart();
+  const DAYS = 14; // horizonte do widget
   const rows = (
     await c.env.DB.prepare(
       `SELECT t.title, t.due_at, t.priority,
-         (SELECT b.name FROM task_placements p JOIN boards b ON b.id = p.board_id WHERE p.task_id = t.id LIMIT 1) AS board
+         (SELECT b.name FROM task_placements p JOIN boards b ON b.id = p.board_id WHERE p.task_id = t.id LIMIT 1) AS board,
+         (SELECT cl.name FROM clients cl WHERE cl.id = t.client_id) AS client
        FROM tasks t WHERE t.done_at IS NULL AND t.due_at IS NOT NULL AND t.due_at < ? ORDER BY t.due_at`,
     )
-      .bind(t0 + 4 * 86400)
+      .bind(t0 + DAYS * 86400)
       .all<Row>()
   ).results;
   const item = (r: Row) => ({ title: r.title, due_at: r.due_at, board: r.board, priority: r.priority });
-  const ev = c.req.query('eventos') === '0' ? null : await listEvents(c.env, t0, t0 + 86400);
+  const ev = c.req.query('eventos') === '0' ? null : await listEvents(c.env, t0, t0 + DAYS * 86400);
+  const evs = (ev?.events ?? []).sort((a, b) => a.start - b.start);
+  // etapas de roteiro ("Publicar · título (cliente)") viram um item próprio
+  const STEP = /^(Criar roteiro|Enviar ao designer|Publicar) · (.+?)(?: \(([^)]+)\))?$/;
+  const agenda = [
+    ...rows.map((r) => ({ kind: 'task', title: r.title, at: r.due_at, all_day: false, late: r.due_at < now(), where: r.client || r.board || '' })),
+    ...evs
+      .filter((e) => e.all_day || e.end > now()) // evento que já acabou some
+      .map((e) => {
+        const m = e.uid.startsWith('pyle-ev-') ? STEP.exec(e.title) : null;
+        return m
+          ? { kind: 'step', step: m[1].toLowerCase(), title: m[2], at: e.start, all_day: e.all_day, late: false, where: m[3] ?? '' }
+          : { kind: 'event', title: e.title, at: e.start, all_day: e.all_day, late: false, where: '' };
+      }),
+  ].sort((a, b) => Number(b.late) - Number(a.late) || a.at - b.at || Number(b.all_day) - Number(a.all_day));
   c.header('Cache-Control', 'no-store');
   return c.json({
     now: now(),
+    today0: t0,
+    agenda,
+    // formato antigo (widgets que ainda não foram atualizados)
     late: rows.filter((r) => r.due_at < now()).map(item),
     today: rows.filter((r) => r.due_at >= now() && r.due_at < t0 + 86400).map(item),
-    soon: rows.filter((r) => r.due_at >= t0 + 86400).map(item),
-    events: (ev?.events ?? []).sort((a, b) => a.start - b.start).map((e) => ({ title: e.title, start: e.start, all_day: e.all_day })),
+    soon: rows.filter((r) => r.due_at >= t0 + 86400 && r.due_at < t0 + 4 * 86400).map(item),
+    events: evs.filter((e) => e.start < t0 + 86400).map((e) => ({ title: e.title, start: e.start, all_day: e.all_day })),
   });
 });
