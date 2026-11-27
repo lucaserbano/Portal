@@ -7,6 +7,7 @@
 	import { between, isLate, plural, type CardFields, type Label, type List, type Task } from '#lib/model.ts';
 	import TaskCard from '#lib/components/TaskCard.svelte';
 	import TaskPanel from '#lib/components/TaskPanel.svelte';
+	import BoardChecklists from '#lib/components/BoardChecklists.svelte';
 
 	type Item = Task & { id: string; task_id: string }; // id = placement_id (chave do arrastar)
 	type Column = List & { items: Item[] };
@@ -16,13 +17,24 @@
 		labels: 'labels',
 		due: 'prazo',
 		start: 'início',
-		description: 'descrição'
+		description: 'descrição',
+		cover: 'capa',
+		checklist: 'checklist',
+		people: 'membros'
 	};
 
 	let board = $state<{ id: string; name: string; card_fields: CardFields } | null>(null);
 	let columns = $state<Column[]>([]);
 	let loose = $state<Item[]>([]); // tarefas do board sem coluna
 	let labels = $state<Label[]>([]);
+	let people = $state<{ id: string; name: string }[]>([]);
+	// Faixa com todos os quadros, para trocar rápido
+	let allBoards = $state<{ id: string; name: string }[]>([]);
+	api<{ boards: { id: string; name: string }[] }>('/destinations').then((d) => (allBoards = d.boards));
+	let templates = $state<{ id: string; name: string }[]>([]);
+	let templateId = $state('');
+	let view = $state<'quadro' | 'checklists'>('quadro');
+	api<{ templates: { id: string; name: string }[] }>('/templates').then((t) => (templates = t.templates));
 	let error = $state('');
 	let openTask = $state<string | null>(null);
 	let showSettings = $state(false);
@@ -63,7 +75,9 @@
 				lists: List[];
 				tasks: Task[];
 				labels: Label[];
+				people: { id: string; name: string }[];
 			}>(`/boards/${bid}`);
+			people = d.people;
 			board = d.board;
 			labels = d.labels;
 			const items = d.tasks.map((t) => ({ ...t, id: t.placement_id!, task_id: t.id }));
@@ -118,9 +132,12 @@
 	async function addTask(col: Column, e: SubmitEvent) {
 		e.preventDefault();
 		const title = newTitle.trim();
-		if (!title) return;
+		if (!title && !templateId) return;
 		newTitle = '';
-		await api('/tasks', { method: 'POST', body: JSON.stringify({ title, board_id: bid, list_id: col.id, at: 'top' }) });
+		await api('/tasks', {
+			method: 'POST',
+			body: JSON.stringify({ title, board_id: bid, list_id: col.id, at: 'top', template_id: templateId || undefined })
+		});
 		await load();
 	}
 
@@ -197,6 +214,14 @@
 {#if error}
 	<p class="err">{error}</p>
 {:else if board}
+	<nav class="tabs" aria-label="Quadros">
+		{#each allBoards as b (b.id)}
+			<a href={resolve('/b/[id]', { id: b.id })} class:on={b.id === bid} aria-current={b.id === bid ? 'page' : undefined}
+				>{b.id === bid ? board.name : b.name}</a
+			>
+		{/each}
+	</nav>
+
 	<section class="grid head">
 		<input
 			class="title-lg name"
@@ -209,6 +234,9 @@
 			<span>{plural(totals.total, 'tarefa')}</span>
 			<span>{totals.ok} no prazo</span>
 			<span class:late={totals.late > 0}>{plural(totals.late, 'atrasada')}</span>
+			<button class="link" onclick={() => (view = view === 'quadro' ? 'checklists' : 'quadro')} aria-pressed={view === 'checklists'}
+				>{view === 'quadro' ? 'checklists' : 'quadro'}</button
+			>
 			<button class="link" onclick={toggleCompact} aria-pressed={compact}>{compact ? 'zoom +' : 'zoom −'}</button>
 			<button class="link" onclick={() => (showSettings = !showSettings)} aria-expanded={showSettings}>exibir</button>
 		</div>
@@ -231,6 +259,9 @@
 		</section>
 	{/if}
 
+	{#if view === 'checklists'}
+		<BoardChecklists boardId={bid} {people} onopen={(tid) => (openTask = tid)} />
+	{:else}
 	<div class="scroller" class:compact bind:this={scrollerEl} style:min-height="{fillH}px">
 		<div
 			class="columns"
@@ -271,15 +302,21 @@
 					{#if addingIn === col.id}
 						<form class="add" onsubmit={(e) => addTask(col, e)}>
 							<!-- svelte-ignore a11y_autofocus -->
-							<input class="field" placeholder="título da tarefa" bind:value={newTitle} autofocus
+							<input class="field" placeholder={templateId ? 'título (vazio = usa o do modelo)' : 'título da tarefa'} bind:value={newTitle} autofocus
 								onkeydown={(e) => e.key === 'Escape' && (addingIn = null)} />
 							<div class="addrow">
-								<button class="btn primary" disabled={!newTitle.trim()}>adicionar</button>
+								<button class="btn primary" disabled={!newTitle.trim() && !templateId}>adicionar</button>
+								{#if templates.length}
+									<select class="tpl" bind:value={templateId} aria-label="Modelo">
+										<option value="">sem modelo</option>
+										{#each templates as t (t.id)}<option value={t.id}>modelo: {t.name}</option>{/each}
+									</select>
+								{/if}
 								<button type="button" class="link" onclick={() => (addingIn = null)}>cancelar</button>
 							</div>
 						</form>
 					{:else}
-						<button class="addbtn" onclick={() => ((addingIn = col.id), (newTitle = ''))}>+ tarefa</button>
+						<button class="addbtn" onclick={() => ((addingIn = col.id), (newTitle = ''), (templateId = ''))}>+ tarefa</button>
 					{/if}
 
 					<div
@@ -293,6 +330,7 @@
 								<TaskCard
 									task={item}
 									{labels}
+									{people}
 									fields={board.card_fields}
 									onopen={() => (openTask = item.task_id)}
 									ontoggle={() => toggle(item)}
@@ -311,12 +349,14 @@
 		</form>
 	</div>
 
-	{#if loose.length}
+	{/if}
+
+	{#if view === 'quadro' && loose.length}
 		<section class="loose">
 			<p class="label">No quadro, sem card ({loose.length})</p>
 			<div class="looselist">
 				{#each loose as item (item.id)}
-					<TaskCard task={item} {labels} fields={board.card_fields} onopen={() => (openTask = item.task_id)} ontoggle={() => toggle(item)} />
+					<TaskCard task={item} {labels} {people} fields={board.card_fields} onopen={() => (openTask = item.task_id)} ontoggle={() => toggle(item)} />
 				{/each}
 			</div>
 		</section>
@@ -330,6 +370,28 @@
 {/if}
 
 <style>
+	.tabs {
+		display: flex;
+		gap: 4px 22px;
+		overflow-x: auto;
+		white-space: nowrap;
+		margin: -8px calc(var(--gutter) * -1) 18px;
+		padding: 0 var(--gutter) 2px;
+		font-size: var(--t-sm);
+		scrollbar-width: none;
+	}
+	.tabs a {
+		text-decoration: none;
+		color: var(--grey);
+		padding: 4px 0;
+	}
+	.tabs a:hover {
+		color: var(--black);
+	}
+	.tabs a.on {
+		color: var(--black);
+		box-shadow: inset 0 -2px 0 var(--accent);
+	}
 	.head {
 		align-items: end;
 		padding-bottom: 12px;
@@ -494,6 +556,14 @@
 		display: grid;
 		gap: 8px;
 	}
+	.tpl {
+		border: 0;
+		border-bottom: 1px solid var(--grey-light);
+		background: none;
+		font-size: var(--t-xs);
+		max-width: 130px;
+		border-radius: 0;
+	}
 	.addrow {
 		display: flex;
 		gap: 14px;
@@ -555,6 +625,8 @@
 	.compact :global(.card .title) {
 		font-size: var(--t-sm);
 	}
+	.compact :global(.card .cover),
+	.compact :global(.card .prog),
 	.compact :global(.card .labels),
 	.compact :global(.card .excerpt),
 	.compact :global(.card .foot) {

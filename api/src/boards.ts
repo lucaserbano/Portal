@@ -1,12 +1,13 @@
 // Fase 2: Boards, Cards (colunas = "lists"), Tarefas, Inbox, Labels
 import { Hono } from 'hono';
 import type { Env } from './index';
+import { cardExtras, syncFromDescription, taskFromTemplate } from './details';
 
 const now = () => Math.floor(Date.now() / 1000);
 const id = (prefix: string) => `${prefix}_${crypto.randomUUID().replace(/-/g, '').slice(0, 16)}`;
 
 const PRIORITIES = ['bom', 'preocupante', 'critico'] as const;
-const TASK_FIELDS = ['title', 'description_md', 'start_at', 'due_at', 'priority', 'color'] as const;
+const TASK_FIELDS = ['title', 'description_md', 'start_at', 'due_at', 'priority', 'color', 'cover_key'] as const;
 
 type Task = Record<string, any>;
 
@@ -60,11 +61,15 @@ boards.get('/boards/:id', async (c) => {
       .all<Task>()
   ).results;
   const labels = (await c.env.DB.prepare('SELECT * FROM labels ORDER BY name').all()).results;
+  const people = (await c.env.DB.prepare('SELECT id, name FROM people ORDER BY name').all()).results;
+  const extras = await cardExtras(c.env, c.req.url, [...new Set(tasks.map((t) => t.id))]);
+  for (const t of tasks) Object.assign(t, extras[t.id]);
   return c.json({
-    board: { ...board, card_fields: JSON.parse(String(board.card_fields)) },
+    board: { ...board, card_fields: { cover: true, checklist: true, people: true, ...JSON.parse(String(board.card_fields)) } },
     lists,
     tasks: await attachLabels(c.env.DB, tasks),
     labels,
+    people,
   });
 });
 
@@ -137,14 +142,19 @@ boards.delete('/lists/:id', async (c) => {
 
 // ---------- Tarefas ----------
 boards.post('/tasks', async (c) => {
-  const b = await c.req.json<{ title: string; board_id?: string; list_id?: string; at?: 'top' | 'bottom' }>();
-  if (!b.title?.trim()) return c.json({ error: 'Título obrigatório.' }, 400);
-  const tid = id('t');
-  const stmts = [
-    c.env.DB.prepare('INSERT INTO tasks (id, title, created_at, updated_at) VALUES (?, ?, ?, ?)').bind(
-      tid, b.title.trim(), now(), now(),
-    ),
-  ];
+  const b = await c.req.json<{ title: string; board_id?: string; list_id?: string; at?: 'top' | 'bottom'; template_id?: string }>();
+  if (!b.title?.trim() && !b.template_id) return c.json({ error: 'Título obrigatório.' }, 400);
+  let tid = id('t');
+  const stmts: D1PreparedStatement[] = [];
+  if (b.template_id) {
+    const fromTpl = await taskFromTemplate(c.env, b.template_id, b.title);
+    if (!fromTpl) return c.json({ error: 'Modelo não encontrado.' }, 404);
+    tid = fromTpl;
+  } else {
+    stmts.push(
+      c.env.DB.prepare('INSERT INTO tasks (id, title, created_at, updated_at) VALUES (?, ?, ?, ?)').bind(tid, b.title.trim(), now(), now()),
+    );
+  }
   if (b.board_id) {
     const top = b.at === 'top';
     const edge = await c.env.DB.prepare(
@@ -158,7 +168,7 @@ boards.post('/tasks', async (c) => {
       ),
     );
   }
-  await c.env.DB.batch(stmts);
+  if (stmts.length) await c.env.DB.batch(stmts);
   return c.json({ id: tid });
 });
 
@@ -207,6 +217,9 @@ boards.patch('/tasks/:id', async (c) => {
     stmts.unshift(
       c.env.DB.prepare(`UPDATE tasks SET ${sets.join(', ')}, updated_at = ? WHERE id = ?`).bind(...vals, now(), tid),
     );
+  }
+  if (typeof body.description_md === 'string' && body.description_md !== cur.description_md) {
+    stmts.push(...syncFromDescription(c.env.DB, tid, body.description_md));
   }
   if (Array.isArray(body.labels)) {
     stmts.push(c.env.DB.prepare('DELETE FROM task_labels WHERE task_id = ?').bind(tid));
@@ -257,7 +270,10 @@ boards.post('/tasks/:id/undone', async (c) => {
 });
 
 boards.delete('/tasks/:id', async (c) => {
-  await c.env.DB.prepare('DELETE FROM tasks WHERE id = ?').bind(c.req.param('id')).run();
+  const tid = c.req.param('id');
+  const keys = (await c.env.DB.prepare("SELECT r2_key FROM attachments WHERE task_id = ? AND kind = 'file'").bind(tid).all<{ r2_key: string }>()).results;
+  if (keys.length) await c.env.FILES.delete(keys.map((k) => k.r2_key));
+  await c.env.DB.prepare('DELETE FROM tasks WHERE id = ?').bind(tid).run();
   return c.json({ ok: true });
 });
 

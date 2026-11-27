@@ -9,6 +9,8 @@ const fmt = (ts: number | null) =>
 const slug = (s: string) =>
   s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 
+let CHECK: Row[] = [];
+
 function taskMd(t: Row) {
   const meta = [
     t.priority && `prioridade: ${t.priority}`,
@@ -19,6 +21,10 @@ function taskMd(t: Row) {
   let md = `### ${t.done_at ? '[x]' : '[ ]'} ${t.title}\n`;
   if (meta.length) md += `\n_${meta.join(' · ')}_\n`;
   if (t.description_md) md += `\n${t.description_md}\n`;
+  const items = CHECK.filter((c) => c.task_id === t.id);
+  if (items.length) {
+    md += '\n' + items.map((c) => `- [${c.done ? 'x' : ' '}] ${c.text}${c.weight != null ? ` (${c.weight}%)` : ''}`).join('\n') + '\n';
+  }
   return md + '\n';
 }
 
@@ -37,6 +43,7 @@ export async function buildMarkdownFiles(env: Env) {
     ).all()
   ).results;
 
+  CHECK = (await env.DB.prepare('SELECT task_id, text, weight, done FROM checklist_items ORDER BY position').all()).results;
   const files: Record<string, string> = {};
   for (const b of boards) {
     let md = `# ${b.name}\n\n`;

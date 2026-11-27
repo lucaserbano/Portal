@@ -12,9 +12,11 @@
       "migrations_dir": "migrations"
     }
   ],
+  "r2_buckets": [{ "binding": "FILES", "bucket_name": "pyle-files" }],
   "vars": {
     "ALLOWED_ORIGINS": "https://lucaserbano.github.io,http://localhost:5173",
-    "BACKUP_REPO": "lucaserbano/pyle-dados"
+    "BACKUP_REPO": "lucaserbano/pyle-dados",
+    "FILES_QUOTA_BYTES": "5368709120"
   },
   // Backup diário em .md às 06:00 UTC (03:00 em Brasília)
   "triggers": { "crons": ["0 6 * * *"] }

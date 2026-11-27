@@ -17,6 +17,10 @@ export interface Task {
 	list_id?: string | null;
 	position?: number;
 	placements?: number;
+	cover_key?: string | null;
+	cover_url?: string | null;
+	progress?: { done: number; total: number; pct: number } | null;
+	people?: string[];
 }
 
 export interface List {
@@ -39,6 +43,9 @@ export interface CardFields {
 	due: boolean;
 	start: boolean;
 	description: boolean;
+	cover: boolean;
+	checklist: boolean;
+	people: boolean;
 }
 
 export const PRIORITY_LABEL: Record<Exclude<Priority, null>, string> = {

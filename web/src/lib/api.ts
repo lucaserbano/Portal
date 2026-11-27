@@ -28,7 +28,7 @@ export class ApiError extends Error {
 export async function api<T = unknown>(path: string, init: RequestInit = {}): Promise<T> {
 	const headers = new Headers(init.headers);
 	if (auth.token) headers.set('Authorization', `Bearer ${auth.token}`);
-	if (init.body && !headers.has('Content-Type')) headers.set('Content-Type', 'application/json');
+	if (typeof init.body === 'string' && !headers.has('Content-Type')) headers.set('Content-Type', 'application/json');
 
 	let res: Response;
 	try {

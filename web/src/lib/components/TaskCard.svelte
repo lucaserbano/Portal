@@ -4,12 +4,14 @@
 	let {
 		task,
 		labels,
+		people = [],
 		fields,
 		onopen,
 		ontoggle
 	}: {
 		task: Task;
 		labels: Label[];
+		people?: { id: string; name: string }[];
 		fields: CardFields;
 		onopen: () => void;
 		ontoggle: () => void;
@@ -17,10 +19,13 @@
 
 	const late = $derived(isLate(task));
 	const taskLabels = $derived(labels.filter((l) => task.labels.includes(l.id)));
-	const excerpt = $derived(task.description_md.replace(/[#*_>`\-\[\]]/g, '').trim().slice(0, 90));
+	const members = $derived(people.filter((p) => task.people?.includes(p.id)));
+	const initials = (n: string) => n.split(/\s+/).slice(0, 2).map((w) => w[0]).join('').toUpperCase();
+	const excerpt = $derived(task.description_md.replace(/\[([^\]]+)\]\((?:person|task):[^)]+\)/g, '$1').replace(/<\/?(u|mark)[^>]*>/g, '').replace(/[#*_>`=\-\[\]]/g, '').trim().slice(0, 90));
 </script>
 
-<article class="card" class:done={!!task.done_at} style:background={task.color ?? undefined}>
+<article class="card" class:done={!!task.done_at} class:hascover={fields.cover && !!task.cover_url} style:background={task.color ?? undefined}>
+	{#if fields.cover && task.cover_url}<img class="cover" src={task.cover_url} alt="" loading="lazy" draggable="false" />{/if}
 	<button
 		class="check"
 		class:on={!!task.done_at}
@@ -44,7 +49,14 @@
 
 		{#if fields.description && excerpt}<span class="excerpt">{excerpt}</span>{/if}
 
-		{#if (fields.priority && task.priority) || (fields.due && task.due_at) || (fields.start && task.start_at) || (task.placements ?? 1) > 1}
+		{#if fields.checklist && task.progress}
+			<span class="prog" title="{task.progress.done} de {task.progress.total} itens">
+				<span class="track"><span style:width="{task.progress.pct}%"></span></span>
+				<span class="meta" class:full={task.progress.pct === 100}>{task.progress.pct}%</span>
+			</span>
+		{/if}
+
+		{#if (fields.priority && task.priority) || (fields.due && task.due_at) || (fields.start && task.start_at) || (task.placements ?? 1) > 1 || (fields.people && members.length)}
 			<span class="foot">
 				{#if fields.priority && task.priority}
 					<span class="prio {task.priority}">{PRIORITY_LABEL[task.priority]}</span>
@@ -53,7 +65,10 @@
 				{#if fields.due && task.due_at}
 					<span class="meta" class:late>{late ? 'atrasada · ' : ''}{fmtShort(task.due_at)}</span>
 				{/if}
-				{#if (task.placements ?? 1) > 1}<span class="meta" title="Cartão espelho">⧉</span>{/if}
+				{#if (task.placements ?? 1) > 1}<span class="meta mirror" title="Cartão espelho">⧉</span>{/if}
+				{#if fields.people && members.length}
+					<span class="people">{#each members as m (m.id)}<span class="av" title={m.name}>{initials(m.name)}</span>{/each}</span>
+				{/if}
 			</span>
 		{/if}
 	</button>
@@ -68,6 +83,50 @@
 		padding: 10px 12px;
 		border: var(--rule);
 		background: var(--white);
+	}
+	.cover {
+		grid-column: 1 / -1;
+		width: calc(100% + 24px);
+		margin: -10px -12px 0;
+		height: 120px;
+		object-fit: cover;
+		border-bottom: var(--rule);
+		pointer-events: none;
+	}
+	.prog {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+	}
+	.track {
+		flex: 1;
+		height: 3px;
+		background: var(--grey-light);
+	}
+	.track span {
+		display: block;
+		height: 100%;
+		background: var(--accent);
+	}
+	.full {
+		color: var(--accent);
+	}
+	.mirror {
+		color: var(--accent);
+	}
+	.people {
+		display: flex;
+		margin-left: auto;
+	}
+	.av {
+		width: 22px;
+		height: 22px;
+		border: 1px solid var(--black);
+		background: var(--white);
+		display: grid;
+		place-items: center;
+		font: 400 9px / 1 var(--mono);
+		margin-left: -4px;
 	}
 	.check {
 		width: 18px;

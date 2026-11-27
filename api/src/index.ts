@@ -3,6 +3,8 @@ import { cors } from 'hono/cors';
 import { FAIL_WINDOW_S, MAX_FAILS, SESSION_DAYS, newToken, sha256, verifyPassword } from './auth';
 import { runBackup } from './backup';
 import { boards } from './boards';
+import { details } from './details';
+import { verify } from './files';
 
 export interface Env {
   DB: D1Database;
@@ -10,6 +12,9 @@ export interface Env {
   BACKUP_REPO: string;
   PASSWORD_HASH: string;
   GITHUB_TOKEN?: string;
+  FILES: R2Bucket;
+  FILE_KEY: string;
+  FILES_QUOTA_BYTES: string;
 }
 
 const now = () => Math.floor(Date.now() / 1000);
@@ -58,6 +63,21 @@ app.post('/auth/login', async (c) => {
   return c.json({ token });
 });
 
+// ---------- Arquivos: URL assinada (sem sessão, para <img> e downloads) ----------
+app.get('/files/:key{.+}', async (c) => {
+  const key = decodeURIComponent(c.req.param('key'));
+  if (!(await verify(c.env, key, c.req.query('e'), c.req.query('s')))) return c.text('Link expirado.', 403);
+  const obj = await c.env.FILES.get(key);
+  if (!obj) return c.text('Não encontrado.', 404);
+  const h = new Headers();
+  obj.writeHttpMetadata(h);
+  h.set('Cache-Control', 'private, max-age=86400');
+  h.set('X-Content-Type-Options', 'nosniff');
+  // Arquivo enviado nunca roda como página (evita HTML/JS malicioso)
+  h.set('Content-Security-Policy', "sandbox; default-src 'none'; img-src 'self'; style-src 'unsafe-inline'");
+  return new Response(obj.body, { headers: h });
+});
+
 // ---------- Tudo abaixo exige sessão ----------
 const api = new Hono<{ Bindings: Env }>();
 
@@ -98,6 +118,7 @@ api.get('/boards', async (c) => {
 });
 
 api.route('/', boards);
+api.route('/', details);
 
 api.post('/backup', async (c) => c.json(await runBackup(c.env)));
 
