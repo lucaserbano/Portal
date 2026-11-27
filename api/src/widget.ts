@@ -3,6 +3,7 @@ import { Hono } from 'hono';
 import type { Env } from './index';
 import { sha256 } from './auth';
 import { TZ, listEvents, zoned } from './caldav';
+import { signedUrl } from './files';
 
 const now = () => Math.floor(Date.now() / 1000);
 type Row = Record<string, any>;
@@ -81,6 +82,8 @@ widgetPublic.get('/widget', async (c) => {
     now: now(),
     today0: t0,
     agenda,
+    // foto do fundo (a mesma do login: pyle-23 = cosmos_470762718, tom ajustado)
+    bg: await signedUrl(c.env, new URL(c.req.url).origin, 'site/pyle-23.webp'),
     // formato antigo (widgets que ainda não foram atualizados)
     late: rows.filter((r) => r.due_at < now()).map(item),
     today: rows.filter((r) => r.due_at >= now() && r.due_at < t0 + 86400).map(item),
