@@ -28,6 +28,16 @@
 		return href === '/' ? id === '/' || id.startsWith('/b/') : id.startsWith(href);
 	}
 
+	let theme = $state(document.documentElement.dataset.theme ?? 'light');
+	function toggleTheme() {
+		theme = theme === 'dark' ? 'light' : 'dark';
+		document.documentElement.dataset.theme = theme;
+		localStorage.setItem('pyle.theme', theme);
+	}
+	$effect(() => {
+		document.querySelector('meta[name="theme-color"]')?.setAttribute('content', theme === 'dark' ? '#000000' : '#ffffff');
+	});
+
 	async function logout() {
 		await api('/auth/logout', { method: 'POST' }).catch(() => {});
 		auth.clear();
@@ -52,7 +62,10 @@
 					>
 				{/each}
 			</nav>
-			<button class="out" onclick={logout}>sair</button>
+			<span class="right">
+				<button class="out" onclick={toggleTheme} aria-label="Alternar modo noturno">{theme === 'dark' ? 'dia' : 'noite'}</button>
+				<button class="out" onclick={logout}>sair</button>
+			</span>
 		</div>
 	</header>
 	<main class="page">
@@ -93,9 +106,13 @@
 		text-decoration-thickness: 2px;
 		text-underline-offset: 5px;
 	}
-	.out {
+	.right {
 		grid-column: 11 / span 2;
 		justify-self: end;
+		display: flex;
+		gap: 18px;
+	}
+	.out {
 		background: none;
 		border: 0;
 		padding: 0;
@@ -109,7 +126,7 @@
 		.brand {
 			grid-column: 1 / span 6;
 		}
-		.out {
+		.right {
 			grid-column: 7 / span 6;
 		}
 		nav {

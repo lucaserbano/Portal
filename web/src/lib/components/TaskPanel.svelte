@@ -449,7 +449,7 @@
 					<button
 						class="sw"
 						class:on={task.color === c.value}
-						style:background={c.value ?? '#fff'}
+						style:background={c.value ?? 'var(--white)'}
 						onclick={() => save({ color: c.value })}
 						aria-label={c.name}
 						title={c.name}
@@ -573,7 +573,7 @@
 	.scrim {
 		position: fixed;
 		inset: 0;
-		background: rgb(255 255 255 / 0.6);
+		background: var(--scrim);
 		z-index: 10;
 	}
 	.panel {

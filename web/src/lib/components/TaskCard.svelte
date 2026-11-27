@@ -24,7 +24,7 @@
 	const excerpt = $derived(task.description_md.replace(/\[([^\]]+)\]\((?:person|task):[^)]+\)/g, '$1').replace(/<\/?(u|mark)[^>]*>/g, '').replace(/[#*_>`=\-\[\]]/g, '').trim().slice(0, 90));
 </script>
 
-<article class="card" class:done={!!task.done_at} class:hascover={fields.cover && !!task.cover_url} style:background={task.color ?? undefined}>
+<article class="card" class:done={!!task.done_at} class:hascover={fields.cover && !!task.cover_url} style:--card={task.color ?? undefined}>
 	{#if fields.cover && task.cover_url}<img class="cover" src={task.cover_url} alt="" loading="lazy" draggable="false" />{/if}
 	<button
 		class="check"
@@ -76,6 +76,7 @@
 
 <style>
 	.card {
+		background: var(--card, var(--white)) !important;
 		display: grid;
 		grid-template-columns: auto 1fr;
 		gap: 10px;
@@ -83,6 +84,9 @@
 		padding: 10px 12px;
 		border: var(--rule);
 		background: var(--white);
+	}
+	:global([data-theme='dark']) .card {
+		background: color-mix(in srgb, var(--card, #000) 22%, #000) !important;
 	}
 	.cover {
 		grid-column: 1 / -1;

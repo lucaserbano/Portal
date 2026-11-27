@@ -193,7 +193,7 @@
 		border-bottom: var(--rule-soft);
 	}
 	.list li.sel {
-		background: linear-gradient(90deg, #ffe3ef, transparent 70%);
+		background: linear-gradient(90deg, var(--select-bg), transparent 70%);
 	}
 	.t {
 		background: none;

@@ -9,6 +9,14 @@
 	--grey-light: #e6e6e6;
 	--accent: #ff006f;
 
+	/* tons de apoio (trocam no modo noturno) */
+	--inactive: #c8c8c8;
+	--code-bg: #f4f4f4;
+	--soft: #444;
+	--select-bg: #ffe3ef;
+	--scrim: rgb(255 255 255 / 0.65);
+	color-scheme: light;
+
 	--sans: 'Helvetica Neue', Helvetica, Arial, system-ui, sans-serif;
 	--mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
 
@@ -21,6 +29,19 @@
 	--t-md: 15px;
 	--t-lg: clamp(22px, 2.6vw, 30px);
 	--t-xl: clamp(40px, 7vw, 96px);
+}
+
+/* Modo noturno: preto ↔ branco; cinza e magenta continuam iguais */
+:root[data-theme='dark'] {
+	--black: #fff;
+	--white: #000;
+	--grey-light: #2b2b2b;
+	--inactive: #4d4d4d;
+	--code-bg: #161616;
+	--soft: #bbb;
+	--select-bg: #3d0018;
+	--scrim: rgb(0 0 0 / 0.65);
+	color-scheme: dark;
 }
 
 *,

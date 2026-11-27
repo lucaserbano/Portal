@@ -196,7 +196,7 @@
 	.scrim {
 		position: fixed;
 		inset: 0;
-		background: rgb(255 255 255 / 0.7);
+		background: var(--scrim);
 		z-index: 20;
 	}
 	.dialog {
@@ -279,7 +279,7 @@
 		color: var(--white);
 	}
 	.fmt.on .meta {
-		color: #bbb;
+		color: var(--grey);
 	}
 	.fmt:focus-within {
 		outline: 2px solid var(--accent);

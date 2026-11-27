@@ -407,7 +407,7 @@
 		display: none;
 	}
 	.other {
-		color: #c8c8c8;
+		color: var(--inactive);
 		text-decoration: none;
 		flex: none;
 	}

@@ -341,6 +341,7 @@
 	}
 	.hl {
 		background: #ffd1e4;
+		color: #000;
 		padding: 0 3px;
 	}
 	.on .hl {
@@ -416,10 +417,10 @@
 		margin: 0;
 		padding-left: 12px;
 		border-left: 2px solid var(--black);
-		color: #444;
+		color: var(--soft);
 	}
 	.area :global(.prose pre) {
-		background: #f4f4f4;
+		background: var(--code-bg);
 		padding: 10px 12px;
 		font: 400 var(--t-sm) / 1.5 var(--mono);
 		overflow-x: auto;
@@ -428,7 +429,7 @@
 	.area :global(.prose code) {
 		font-family: var(--mono);
 		font-size: 0.9em;
-		background: #f4f4f4;
+		background: var(--code-bg);
 		padding: 1px 3px;
 	}
 	.area :global(.prose pre code) {
@@ -437,7 +438,7 @@
 	}
 	.area :global(.prose mark) {
 		padding: 0 2px;
-		color: inherit;
+		color: #000 !important; /* marca-texto claro: texto sempre escuro */
 	}
 	.area :global(.prose a) {
 		cursor: text;

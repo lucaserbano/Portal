@@ -6,6 +6,14 @@
 		<meta name="theme-color" content="#ffffff" />
 		<meta name="robots" content="noindex, nofollow" />
 		<title>πύλη</title>
+		<script>
+			// tema antes de desenhar a página (evita piscar branco no modo noturno)
+			(function () {
+				var t = localStorage.getItem('pyle.theme');
+				var dark = t ? t === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches;
+				document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+			})();
+		</script>
 		%sveltekit.head%
 	</head>
 	<body data-sveltekit-preload-data="hover">
