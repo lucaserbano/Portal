@@ -178,7 +178,8 @@
 				suggestionFor('@'),
 				suggestionFor('#')
 			],
-			content: value,
+			// títulos (##) viram negrito: o editor não tem tamanhos de fonte
+			content: value.replace(/^#{1,6} +(.+)$/gm, '**$1**'),
 			contentType: 'markdown',
 			editorProps: {
 				attributes: { class: 'prose', 'aria-label': 'Descrição' },

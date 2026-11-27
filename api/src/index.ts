@@ -6,6 +6,7 @@ import { agenda } from './agenda';
 import { boards } from './boards';
 import { syncTasks } from './caldav';
 import { forms, publicForms } from './forms';
+import { social } from './social';
 import { details } from './details';
 import { verify } from './files';
 
@@ -137,6 +138,7 @@ api.route('/', boards);
 api.route('/', details);
 api.route('/', agenda);
 api.route('/', forms);
+api.route('/', social);
 
 api.post('/backup', async (c) => c.json(await runBackup(c.env)));
 
