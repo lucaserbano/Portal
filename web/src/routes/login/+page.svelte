@@ -5,6 +5,12 @@
 	import Doodle from '#lib/components/Doodle.svelte';
 
 	let password = $state('');
+	// uma foto "vibe" (muda a cada dia); privada: vem com link assinado da API
+	let photo = $state<{ url: string; w: number; h: number } | null>(null);
+	fetch(`${import.meta.env.VITE_API_URL}/public/login-image`)
+		.then((r) => r.json())
+		.then((d) => (photo = d.photo))
+		.catch(() => {});
 	let error = $state('');
 	let busy = $state(false);
 
@@ -35,7 +41,9 @@
 	</div>
 
 	<form class="grid" onsubmit={submit}>
-		<div class="door"><Doodle name="door" size={64} /></div>
+		<div class="door">
+			{#if photo}<img class="ph" src={photo.url} alt="" width={photo.w} height={photo.h} />{:else}<Doodle name="door" size={64} />{/if}
+		</div>
 		<div class="fieldset">
 			<label class="label" for="pw">senha</label>
 			<input
@@ -77,6 +85,13 @@
 	.door {
 		grid-column: 1 / span 6;
 		align-self: end;
+	}
+	.ph {
+		display: block;
+		max-width: 100%;
+		max-height: 52vh;
+		width: auto;
+		height: auto; /* inteira */
 	}
 	.fieldset {
 		grid-column: 7 / span 4;

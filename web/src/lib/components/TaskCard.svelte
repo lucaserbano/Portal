@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { PRIORITY_LABEL, cardVars, fmtShort, isLate, labelVars, type CardFields, type Label, type Task } from '#lib/model.ts';
+	import { PRIORITY_LABEL, cardVars, fmtShort, isLate, labelVars, plainText, type CardFields, type Label, type Task } from '#lib/model.ts';
 
 	let {
 		task,
@@ -21,7 +21,7 @@
 	const taskLabels = $derived(labels.filter((l) => task.labels.includes(l.id)));
 	const members = $derived(people.filter((p) => task.people?.includes(p.id)));
 	const initials = (n: string) => n.split(/\s+/).slice(0, 2).map((w) => w[0]).join('').toUpperCase();
-	const excerpt = $derived(task.description_md.replace(/\[([^\]]+)\]\((?:person|task):[^)]+\)/g, '$1').replace(/<\/?(u|mark)[^>]*>/g, '').replace(/[#*_>`=\-\[\]]/g, '').trim().slice(0, 90));
+	const excerpt = $derived(plainText(task.description_md).slice(0, 90));
 </script>
 
 <article class="card" class:done={!!task.done_at} class:hascover={fields.cover && !!task.cover_url} style={cardVars(task.color)}>

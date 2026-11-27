@@ -69,7 +69,14 @@
 		task_id: string | null;
 		updated_at: number;
 	};
+	type Img = { id: string; caption: string; url: string; mime: string | null };
 	let s = $state<Script | null>(null);
+	let images = $state<Img[]>([]);
+	let uploading = $state(0);
+	let editorRef = $state<any>(null);
+	let pdfBusy = $state(false);
+	let pendingPdf = $state<File | null>(null);
+	let note = $state('');
 	let people = $state<{ id: string; name: string }[]>([]);
 	let Editor = $state<any>(null);
 	let copied = $state(false);
@@ -79,8 +86,9 @@
 	import('./Editor.svelte').then((m) => (Editor = m.default));
 
 	$effect(() => {
-		Promise.all([api<{ script: Script }>(`/scripts/${id}`), api<{ people: { id: string; name: string }[] }>('/people')]).then(([a, b]) => {
+		Promise.all([api<{ script: Script; images: Img[] }>(`/scripts/${id}`), api<{ people: { id: string; name: string }[] }>('/people')]).then(([a, b]) => {
 			s = a.script;
+			images = a.images;
 			people = b.people;
 		});
 	});
@@ -116,15 +124,122 @@
 		setTimeout(() => (copied = false), 1500);
 	}
 
-	const claudeUrl = $derived(
+	const claudePrompt = $derived(
 		s
-			? claudeLink(
+			? (
 					`Você é roteirista de conteúdo para Instagram. Escreva (ou melhore, se já houver texto) o roteiro abaixo na voz do cliente. ` +
 						`Mantenha a estrutura das seções. Seja específico, com frases prontas para gravar ou para a arte. Responda em português.\n\n` +
 						`${profileText(client)}\n\nFormato: ${formatName(s.format)}\nTítulo/tema: ${s.title}\n\nRoteiro atual:\n${plain(s.body_md) || '(vazio)'}`
 				)
 			: ''
 	);
+	const claudeUrl = $derived(claudeLink(claudePrompt));
+	async function copyPrompt() {
+		await navigator.clipboard.writeText(claudePrompt);
+		say('pedido copiado: cole no Claude');
+	}
+
+	function say(m: string) {
+		note = m;
+		setTimeout(() => (note = ''), 2500);
+	}
+
+	// ---------- Imagens ----------
+	async function reloadImages() {
+		images = (await api<{ images: Img[] }>(`/scripts/${id}`)).images;
+	}
+	async function upload(files: Iterable<File>) {
+		for (const f of files) {
+			if (!f.type.startsWith('image/')) continue;
+			if (f.size > 5 * 1024 * 1024) {
+				say(`“${f.name}” tem mais de 5 MB`);
+				continue;
+			}
+			uploading++;
+			try {
+				const fd = new FormData();
+				fd.append('file', f, f.name || 'imagem.png');
+				await api(`/scripts/${id}/images`, { method: 'POST', body: fd });
+			} catch (e) {
+				say((e as Error).message);
+			} finally {
+				uploading--;
+			}
+		}
+		await reloadImages();
+		onchange();
+	}
+	// colar uma imagem em qualquer lugar do painel (⌘V ou "colar" no iPhone)
+	function onPaste(e: ClipboardEvent) {
+		const files = [...(e.clipboardData?.files ?? [])].filter((f) => f.type.startsWith('image/'));
+		if (!files.length) return;
+		e.preventDefault();
+		upload(files);
+	}
+	async function pasteButton() {
+		try {
+			const items = await navigator.clipboard.read();
+			const files: File[] = [];
+			for (const it of items) {
+				const type = it.types.find((t) => t.startsWith('image/'));
+				if (type) files.push(new File([await it.getType(type)], `colada.${type.split('/')[1]}`, { type }));
+			}
+			if (!files.length) return say('Não há imagem copiada.');
+			upload(files);
+		} catch {
+			say('O navegador não deixou ler a área de transferência. Use ⌘V aqui no painel.');
+		}
+	}
+	async function caption(im: Img, v: string) {
+		im.caption = v;
+		await api(`/script-images/${im.id}`, { method: 'PATCH', body: JSON.stringify({ caption: v }) });
+	}
+	async function moveImg(i: number, d: number) {
+		const j = i + d;
+		if (j < 0 || j >= images.length) return;
+		const arr = [...images];
+		[arr[i], arr[j]] = [arr[j], arr[i]];
+		images = arr;
+		await Promise.all(arr.map((im, k) => api(`/script-images/${im.id}`, { method: 'PATCH', body: JSON.stringify({ position: k + 1 }) })));
+	}
+	let confirmImg = $state<string | null>(null);
+	async function delImg(im: Img) {
+		if (confirmImg !== im.id) {
+			confirmImg = im.id;
+			setTimeout(() => (confirmImg = null), 3000);
+			return;
+		}
+		images = images.filter((x) => x.id !== im.id);
+		await api(`/script-images/${im.id}`, { method: 'DELETE' });
+	}
+	function cite(n: number) {
+		editorRef?.insert(` [imagem ${n}] `);
+	}
+
+	// ---------- PDF para o designer ----------
+	async function pdf() {
+		if (!s) return;
+		pdfBusy = true;
+		try {
+			const x = await import('#lib/export.ts');
+			const blob = await x.scriptToPDF({
+				client: client.name,
+				title: s.title,
+				format: formatName(s.format),
+				status: SCRIPT_STATUS.find((v) => v[0] === s!.status)?.[1] ?? s.status,
+				body_md: s.body_md,
+				images: images.map((i) => ({ url: i.url, caption: i.caption }))
+			});
+			const name = `${x.fileSlug(client.name + ' ' + s.title)}.pdf`;
+			const r = await x.deliver(blob, name, true);
+			if (r === 'gesture') pendingPdf = new File([blob], name, { type: 'application/pdf' });
+			if (r === 'downloaded') say('PDF baixado');
+		} catch (e) {
+			say((e as Error).message);
+		} finally {
+			pdfBusy = false;
+		}
+	}
 
 	async function toTask(dest: { board_id?: string; list_id?: string | null }) {
 		const r = await api<{ id: string }>(`/scripts/${id}/task`, { method: 'POST', body: JSON.stringify(dest) });
@@ -146,7 +261,7 @@
 	}
 </script>
 
-<svelte:window onkeydown={(e) => e.key === 'Escape' && onclose()} />
+<svelte:window onkeydown={(e) => e.key === 'Escape' && onclose()} onpaste={onPaste} />
 <div class="scrim" onclick={onclose} aria-hidden="true"></div>
 
 <aside class="panel" aria-label="Roteiro">
@@ -179,13 +294,22 @@
 
 		<nav class="actions">
 			<button onclick={copy}>{copied ? 'copiado ✓' : 'copiar texto'}</button>
+			<button onclick={pdf} disabled={pdfBusy}>{pdfBusy ? 'gerando…' : 'PDF p/ designer'}</button>
 			<a href={claudeUrl} target="_blank" rel="noopener">escrever com o Claude ↗</a>
+			<button onclick={copyPrompt}>copiar pedido p/ Claude</button>
 			{#if s.task_id}
 				<button onclick={() => onopentask(s!.task_id!)}>ver tarefa</button>
 			{:else}
 				<button onclick={() => (sending = !sending)} class:on={sending}>virar tarefa</button>
 			{/if}
 		</nav>
+
+		{#if pendingPdf}
+			<div class="box dest">
+				<span class="label">PDF pronto.</span>
+				<button class="btn" onclick={() => { const f = pendingPdf!; pendingPdf = null; navigator.share({ files: [f], title: f.name }).catch(() => {}); }}>enviar PDF</button>
+			</div>
+		{/if}
 
 		{#if sending}
 			<div class="box dest">
@@ -197,10 +321,38 @@
 		{/if}
 
 		{#if Editor}
-			<Editor value={s.body_md} {people} onchange={onBody} onpeople={(p: { id: string; name: string }) => (people = [...people, p])} onopentask={onopentask} />
+			<Editor bind:this={editorRef} value={s.body_md} {people} onchange={onBody} onpeople={(p: { id: string; name: string }) => (people = [...people, p])} onopentask={onopentask} />
 		{:else}
 			<p class="meta">carregando editor…</p>
 		{/if}
+
+		<section class="imgs">
+			<div class="ihead">
+				<span class="label">imagens {#if images.length}<span class="meta">{images.length}</span>{/if}</span>
+				<span class="iact">
+					<label class="link">+ arquivo<input type="file" accept="image/*" multiple hidden onchange={(e) => (upload([...(e.currentTarget.files ?? [])]), (e.currentTarget.value = ''))} /></label>
+					<button class="link" onclick={pasteButton}>colar imagem</button>
+				</span>
+			</div>
+			<p class="meta">Cole (⌘V) ou envie imagens. Para citar no texto, toque em “citar”: entra <b>[imagem N]</b> onde está o cursor.{uploading ? ` Enviando ${uploading}…` : ''}</p>
+			{#if images.length}
+				<ol class="gallery">
+					{#each images as im, i (im.id)}
+						<li>
+							<span class="n">Imagem {i + 1}</span>
+							<a href={im.url} target="_blank" rel="noopener" class="ph"><img src={im.url} alt="Imagem {i + 1}" loading="lazy" /></a>
+							<input class="cap" placeholder="legenda (ex.: slide 2)" value={im.caption} onchange={(e) => caption(im, e.currentTarget.value)} />
+							<span class="ibtn">
+								<button onclick={() => cite(i + 1)}>citar</button>
+								<button onclick={() => moveImg(i, -1)} disabled={i === 0} aria-label="Antes">←</button>
+								<button onclick={() => moveImg(i, 1)} disabled={i === images.length - 1} aria-label="Depois">→</button>
+								<button class="del" onclick={() => delImg(im)}>{confirmImg === im.id ? 'ok?' : '×'}</button>
+							</span>
+						</li>
+					{/each}
+				</ol>
+			{/if}
+		</section>
 
 		<footer>
 			<span class="meta">editado {fmtLong(s.updated_at)}</span>
@@ -209,6 +361,7 @@
 	{:else}
 		<p class="meta">carregando…</p>
 	{/if}
+	{#if note}<p class="flash" role="status">{note}</p>{/if}
 </aside>
 
 <style>
@@ -306,7 +459,7 @@
 	}
 	.actions {
 		display: grid;
-		grid-template-columns: repeat(3, 1fr);
+		grid-template-columns: repeat(5, 1fr);
 		border-top: var(--rule);
 		border-left: var(--rule);
 	}
@@ -338,6 +491,102 @@
 		gap: 8px;
 		justify-items: start;
 	}
+	.imgs {
+		border-top: var(--rule);
+		padding-top: 12px;
+		display: grid;
+		gap: 8px;
+	}
+	.ihead {
+		display: flex;
+		justify-content: space-between;
+		align-items: baseline;
+	}
+	.iact {
+		display: flex;
+		gap: 16px;
+	}
+	.link {
+		background: none;
+		border: 0;
+		padding: 0;
+		font-size: var(--t-sm);
+		cursor: pointer;
+		text-decoration: underline;
+		text-underline-offset: 3px;
+		color: var(--black);
+	}
+	.gallery {
+		list-style: none;
+		margin: 0;
+		padding: 0;
+		display: grid;
+		grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+		border-top: var(--rule);
+		border-left: var(--rule);
+	}
+	.gallery li {
+		display: grid;
+		gap: 6px;
+		padding: 8px;
+		border-right: var(--rule);
+		border-bottom: var(--rule);
+		align-content: start;
+	}
+	.n {
+		font: 700 var(--t-xs) var(--mono);
+		color: var(--accent);
+	}
+	.ph {
+		display: grid;
+		place-items: center;
+		aspect-ratio: 1;
+		background: var(--code-bg);
+	}
+	.ph img {
+		max-width: 100%;
+		max-height: 100%;
+		object-fit: contain; /* imagem inteira, sem corte */
+	}
+	.cap {
+		border: 0;
+		border-bottom: 1px solid var(--grey-light);
+		background: none;
+		font-size: var(--t-xs);
+		padding: 4px 0;
+		outline: none;
+		min-width: 0;
+	}
+	.ibtn {
+		display: flex;
+		gap: 4px;
+	}
+	.ibtn button {
+		border: 1px solid var(--grey-light);
+		background: none;
+		padding: 3px 7px;
+		font-size: var(--t-xs);
+		cursor: pointer;
+	}
+	.ibtn button:first-child {
+		flex: 1;
+		border-color: var(--black);
+	}
+	.ibtn button:disabled {
+		opacity: 0.3;
+	}
+	.ibtn .del:hover {
+		color: var(--accent);
+	}
+	.flash {
+		position: sticky;
+		bottom: 16px;
+		justify-self: center;
+		background: var(--black);
+		color: var(--white);
+		padding: 10px 16px;
+		font-size: var(--t-sm);
+	}
 	footer {
 		display: flex;
 		justify-content: space-between;
@@ -353,6 +602,9 @@
 	@media (max-width: 600px) {
 		.panel {
 			border-left: 0;
+		}
+		.actions {
+			grid-template-columns: repeat(2, 1fr);
 		}
 	}
 </style>

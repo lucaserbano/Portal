@@ -25,11 +25,12 @@ export async function verify(env: Env, key: string, exp: string | undefined, sig
   return (await hmac(env, `${key}:${exp}`)) === sig;
 }
 
-/** Bytes já usados pelo portal (anexos + capas de modelos) */
+/** Bytes já usados pelo portal (anexos, capas de modelos, imagens de roteiros) */
 export async function usedBytes(env: Env) {
   const r = await env.DB.prepare(
     `SELECT (SELECT COALESCE(SUM(size),0) FROM attachments WHERE kind = 'file')
-          + (SELECT COALESCE(SUM(cover_size),0) FROM templates) AS n`,
+          + (SELECT COALESCE(SUM(cover_size),0) FROM templates)
+          + (SELECT COALESCE(SUM(size),0) FROM script_images) AS n`,
   ).first<{ n: number }>();
   return r?.n ?? 0;
 }

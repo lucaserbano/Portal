@@ -172,6 +172,18 @@
 	}
 
 	// "Abrir no Claude": leva a resposta pronta para o Claude transformar em tarefas e briefing
+	function claudePrompt(r: Resp) {
+		const body = r.answers.map((a) => `${a.label}: ${fmtVal(a) || '—'}`).join('\n');
+		return (
+			`Recebi esta resposta ao formulário “${form?.title}”. Transforme em: (1) um briefing curto e organizado; ` +
+			`(2) uma lista de tarefas para o meu quadro, cada uma com título, descrição, checklist, prioridade (Bom, Preocupante ou Crítico) e prazo sugerido. ` +
+			`Responda em português.\n\n${body}`
+		);
+	}
+	async function copyPrompt(r: Resp) {
+		await navigator.clipboard.writeText(claudePrompt(r));
+		say('pedido copiado: cole no Claude');
+	}
 	function claudeUrl(r: Resp) {
 		const body = r.answers.map((a) => `${a.label}: ${fmtVal(a) || '—'}`).join('\n');
 		let q =
@@ -387,6 +399,7 @@
 							<button class="btn primary-b" onclick={() => toTask(r)}>criar tarefa no inbox</button>
 						{/if}
 						<a class="btn" href={claudeUrl(r)} target="_blank" rel="noopener">abrir no Claude ↗</a>
+						<button class="btn" onclick={() => copyPrompt(r)}>copiar pedido</button>
 						<span class="ract">
 							<button class="link" onclick={() => setRead(r, !r.read_at)}>{r.read_at ? 'marcar como nova' : 'marcar como lida'}</button>
 							<button class="link danger" onclick={() => delResp(r)}>{confirmResp === r.id ? 'confirmar' : 'apagar'}</button>

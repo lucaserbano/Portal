@@ -9,6 +9,7 @@
 	import { resolve } from '$app/paths';
 	import { dndzone, dragHandle, dragHandleZone, type DndEvent } from 'svelte-dnd-action';
 	import { api } from '#lib/api.ts';
+	import { hscroll } from '#lib/hscroll.ts';
 	import { between, isLate, plural, type CardFields, type Label, type List, type Task } from '#lib/model.ts';
 	import TaskCard from '#lib/components/TaskCard.svelte';
 	import TaskPanel from '#lib/components/TaskPanel.svelte';
@@ -243,7 +244,7 @@
 	<p class="err">{error}</p>
 {:else if board}
 	<section class="grid head">
-		<nav class="titles" aria-label="Quadros">
+		<nav class="titles" aria-label="Quadros" use:hscroll>
 			{#each allBoards.length ? allBoards : [board] as b (b.id)}
 				{#if b.id === bid}
 					<!-- o texto invisível dá a largura exata; o campo fica por cima -->
@@ -297,7 +298,7 @@
 	{#if view === 'checklists'}
 		<BoardChecklists boardId={bid} {people} onopen={(tid) => (openTask = tid)} />
 	{:else}
-	<div class="scroller" class:compact bind:this={scrollerEl} style:min-height="{fillH}px">
+	<div class="scroller" class:compact bind:this={scrollerEl} style:min-height="{fillH}px" use:hscroll>
 		<div
 			class="columns"
 			use:dragHandleZone={{ items: columns, flipDurationMs: FLIP, type: 'column', dropTargetStyle: {} }}

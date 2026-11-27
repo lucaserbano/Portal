@@ -1,10 +1,23 @@
 // Fase 7: Social Media — clientes, banco de temas, roteiros e modelos de roteiro
 import { Hono } from 'hono';
 import type { Env } from './index';
+import { MAX_FILE_BYTES, signedUrl, usedBytes } from './files';
 
 const now = () => Math.floor(Date.now() / 1000);
 const newId = (p: string) => `${p}_${crypto.randomUUID().replace(/-/g, '').slice(0, 16)}`;
 type Row = Record<string, any>;
+
+/** Markdown/HTML do editor → texto simples (para prévias) */
+export function plainText(md: string) {
+  return md
+    .replace(/<[^>]*(>|$)/g, '') // tags, inclusive cortadas no meio
+    .replace(/\[([^\]]+)\]\((?:person|task):[^)]+\)/g, '$1')
+    .replace(/!\[[^\]]*\]\([^)]*\)/g, '')
+    .replace(/\\([\[\]])/g, '$1')
+    .replace(/[#>*_=`~\\]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
 
 const FORMATS = ['reels', 'carrossel', 'estatico', 'stories', 'outro'];
 const THEME_STATUS = ['ideia', 'aprovado', 'roteirizado', 'postado', 'descartado'];
@@ -60,13 +73,15 @@ social.get('/clients/:id', async (c) => {
   const [themes, scripts] = await Promise.all([
     c.env.DB.prepare('SELECT * FROM themes WHERE client_id = ? ORDER BY position DESC, created_at DESC').bind(id).all(),
     c.env.DB.prepare(
-      `SELECT s.id, s.theme_id, s.title, s.format, s.status, s.task_id, s.updated_at, s.created_at, substr(s.body_md, 1, 160) AS excerpt
+      `SELECT s.id, s.theme_id, s.title, s.format, s.status, s.task_id, s.updated_at, s.created_at, s.body_md,
+         (SELECT COUNT(*) FROM script_images i WHERE i.script_id = s.id) AS images
        FROM scripts s WHERE s.client_id = ? ORDER BY s.updated_at DESC`,
     )
       .bind(id)
-      .all(),
+      .all<Row>(),
   ]);
-  return c.json({ client, themes: themes.results, scripts: scripts.results });
+  const list = scripts.results.map(({ body_md, ...r }) => ({ ...r, excerpt: plainText(body_md).slice(0, 160) }));
+  return c.json({ client, themes: themes.results, scripts: list });
 });
 
 social.patch('/clients/:id', async (c) => {
@@ -171,7 +186,10 @@ social.get('/scripts/:id', async (c) => {
     .bind(c.req.param('id'))
     .first();
   if (!s) return c.json({ error: 'Roteiro não encontrado.' }, 404);
-  return c.json({ script: s });
+  const imgs = (await c.env.DB.prepare('SELECT id, r2_key, caption, mime FROM script_images WHERE script_id = ? ORDER BY position, created_at').bind(c.req.param('id')).all<Row>()).results;
+  const o = new URL(c.req.url).origin;
+  const images = await Promise.all(imgs.map(async (i) => ({ id: i.id, caption: i.caption, mime: i.mime, url: await signedUrl(c.env, o, i.r2_key) })));
+  return c.json({ script: s, images });
 });
 
 social.patch('/scripts/:id', async (c) => {
@@ -185,7 +203,54 @@ social.patch('/scripts/:id', async (c) => {
 });
 
 social.delete('/scripts/:id', async (c) => {
+  const keys = (await c.env.DB.prepare('SELECT r2_key FROM script_images WHERE script_id = ?').bind(c.req.param('id')).all<Row>()).results;
   await c.env.DB.prepare('DELETE FROM scripts WHERE id = ?').bind(c.req.param('id')).run();
+  if (keys.length) await c.env.FILES.delete(keys.map((k) => k.r2_key));
+  return c.json({ ok: true });
+});
+
+// ---------- Imagens do roteiro (galeria numerada, citável no texto como [imagem N]) ----------
+social.post('/scripts/:id/images', async (c) => {
+  const sid = c.req.param('id');
+  const exists = await c.env.DB.prepare('SELECT id FROM scripts WHERE id = ?').bind(sid).first();
+  if (!exists) return c.json({ error: 'Roteiro não encontrado.' }, 404);
+  const form = await c.req.formData();
+  const file = form.get('file');
+  if (!(file instanceof File)) return c.json({ error: 'Imagem ausente.' }, 400);
+  if (!/^image\/(png|jpe?g|webp|gif|heic|heif)$/i.test(file.type)) return c.json({ error: 'Só imagens (PNG, JPG, WebP, GIF, HEIC).' }, 415);
+  if (file.size > MAX_FILE_BYTES) return c.json({ error: 'Imagem maior que 5 MB.' }, 413);
+  if ((await usedBytes(c.env)) + file.size > Number(c.env.FILES_QUOTA_BYTES)) {
+    return c.json({ error: 'Espaço de arquivos do portal cheio (limite para não sair do plano gratuito).' }, 507);
+  }
+  const iid = newId('im');
+  const key = `scripts/${sid}/${iid}`;
+  await c.env.FILES.put(key, file.stream(), { httpMetadata: { contentType: file.type } });
+  const max = await c.env.DB.prepare('SELECT COALESCE(MAX(position), 0) AS p FROM script_images WHERE script_id = ?').bind(sid).first<{ p: number }>();
+  await c.env.DB.batch([
+    c.env.DB.prepare('INSERT INTO script_images (id, script_id, r2_key, size, mime, caption, position, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)').bind(
+      iid, sid, key, file.size, file.type, String(form.get('caption') ?? '').slice(0, 300), (max?.p ?? 0) + 1, now(),
+    ),
+    c.env.DB.prepare('UPDATE scripts SET updated_at = ? WHERE id = ?').bind(now(), sid),
+  ]);
+  return c.json({ id: iid });
+});
+
+social.patch('/script-images/:id', async (c) => {
+  const b = await c.req.json<Row>();
+  const sets: string[] = [];
+  const vals: unknown[] = [];
+  if (b.caption !== undefined) sets.push('caption = ?'), vals.push(String(b.caption).slice(0, 300));
+  if (b.position !== undefined) sets.push('position = ?'), vals.push(Number(b.position) || 0);
+  if (sets.length) await c.env.DB.prepare(`UPDATE script_images SET ${sets.join(', ')} WHERE id = ?`).bind(...vals, c.req.param('id')).run();
+  return c.json({ ok: true });
+});
+
+social.delete('/script-images/:id', async (c) => {
+  const r = await c.env.DB.prepare('SELECT r2_key FROM script_images WHERE id = ?').bind(c.req.param('id')).first<Row>();
+  if (r) {
+    await c.env.FILES.delete(r.r2_key);
+    await c.env.DB.prepare('DELETE FROM script_images WHERE id = ?').bind(c.req.param('id')).run();
+  }
   return c.json({ ok: true });
 });
 

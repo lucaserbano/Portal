@@ -54,7 +54,7 @@
 	let newPerson = $state('');
 	let linkUrl = $state('');
 	let uploading = $state(false);
-	let action = $state<null | 'move' | 'copy' | 'mirror' | 'template'>(null);
+	let action = $state<null | 'move' | 'copy' | 'mirror' | 'template' | 'client' | 'claude'>(null);
 	let templateName = $state('');
 	let movePlacement = $state('');
 	let flash = $state('');
@@ -281,6 +281,47 @@
 		}
 	}
 
+	// ---------- Cliente: link da tarefa e página do cliente ----------
+	type ShareInfo = { url: string | null; share_desc: number; client_id: string | null; client_visible: number };
+	let shareInfo = $state<ShareInfo | null>(null);
+	let clients = $state<{ id: string; name: string }[]>([]);
+	async function openClient() {
+		action = action === 'client' ? null : 'client';
+		if (action !== 'client') return;
+		const [a, b] = await Promise.all([api<ShareInfo>(`/tasks/${current}/share`), api<{ clients: { id: string; name: string }[] }>('/clients')]);
+		shareInfo = a;
+		clients = b.clients;
+	}
+	async function setShare(p: Record<string, unknown>) {
+		shareInfo = await api<ShareInfo>(`/tasks/${current}/share`, { method: 'PATCH', body: JSON.stringify(p) });
+	}
+	async function copyShare() {
+		if (!shareInfo?.url) return;
+		await navigator.clipboard.writeText(shareInfo.url);
+		say('link copiado');
+	}
+	function sendShare() {
+		if (!shareInfo?.url) return;
+		if (navigator.share) navigator.share({ title: task?.title, url: shareInfo.url }).catch(() => {});
+		else copyShare();
+	}
+
+	// ---------- Claude (grátis: abre o claude.ai com o pedido pronto) ----------
+	const claudePrompt = $derived(
+		task
+			? `Me ajude com esta tarefa do meu portal de trabalho. Quebre em um checklist de passos concretos (cada um com uma estimativa de esforço), ` +
+					`aponte riscos ou o que pode estar faltando e sugira os próximos passos. Responda em português.\n\n` +
+					`Tarefa: ${task.title}\n${task.due_at ? `Prazo: ${fmtLong(task.due_at)}\n` : ''}${task.priority ? `Prioridade: ${PRIORITY_LABEL[task.priority]}\n` : ''}` +
+					`${full?.checklist.length ? `Checklist atual:\n${full.checklist.map((i) => `- [${i.done ? 'x' : ' '}] ${i.text}`).join('\n')}\n` : ''}` +
+					`\nDescrição:\n${task.description_md.replace(/\[([^\]]+)\]\((?:person|task):[^)]+\)/g, '$1').replace(/<[^>]*>/g, '') || '(sem descrição)'}`
+			: ''
+	);
+	const claudeUrl = $derived(`https://claude.ai/new?q=${encodeURIComponent(claudePrompt.length > 7000 ? claudePrompt.slice(0, 7000) + '…' : claudePrompt)}`);
+	async function copyPrompt() {
+		await navigator.clipboard.writeText(claudePrompt);
+		say('pedido copiado: cole no Claude');
+	}
+
 	async function remove() {
 		if (!confirmDelete) {
 			confirmDelete = true;
@@ -387,6 +428,8 @@
 			<button class:on={action === 'mirror'} onclick={() => (action = action === 'mirror' ? null : 'mirror')}><span>⇄</span>espelhar</button>
 			<button onclick={sharePdf} disabled={sharing}><span>↗</span>{sharing ? 'gerando…' : 'PDF'}</button>
 			<button class:on={action === 'template'} onclick={() => (action = action === 'template' ? null : 'template')}><span>▤</span>modelo</button>
+			<button class:on={action === 'client'} onclick={openClient}><span>◎</span>cliente</button>
+			<button class:on={action === 'claude'} onclick={() => (action = action === 'claude' ? null : 'claude')}><span>✳</span>Claude</button>
 		</nav>
 
 		{#if pendingPdf}
@@ -407,6 +450,46 @@
 					</select>
 				{/if}
 				<Destination label={action === 'move' ? 'mover' : action === 'copy' ? 'copiar' : 'espelhar'} onconfirm={doAction} oncancel={() => (action = null)} />
+			</div>
+		{:else if action === 'client'}
+			<div class="actionbox">
+				{#if shareInfo}
+					<p class="label">Link desta tarefa para o cliente acompanhar (etapa, prazo, progresso e checklist feito/falta):</p>
+					{#if shareInfo.url}
+						<p class="meta shareurl">{shareInfo.url}</p>
+						<div class="row wrap">
+							<button class="btn primary" onclick={copyShare}>copiar link</button>
+							<button class="btn" onclick={sendShare}>enviar</button>
+							<a class="btn" href={shareInfo.url} target="_blank" rel="noopener">ver ↗</a>
+							<button class="link danger" onclick={() => setShare({ enable: false })}>desligar link</button>
+						</div>
+						<label class="opt"><input type="checkbox" checked={!!shareInfo.share_desc} onchange={(e) => setShare({ desc: e.currentTarget.checked })} /> mostrar a descrição no link</label>
+					{:else}
+						<button class="btn primary" onclick={() => setShare({ enable: true })}>gerar link</button>
+					{/if}
+					<p class="label sep">Página do cliente (várias tarefas num link só):</p>
+					<div class="row wrap">
+						<select value={shareInfo.client_id ?? ''} onchange={(e) => setShare({ client_id: e.currentTarget.value || null, client_visible: !!e.currentTarget.value })} aria-label="Cliente">
+							<option value="">sem cliente</option>
+							{#each clients as c (c.id)}<option value={c.id}>{c.name}</option>{/each}
+						</select>
+						{#if shareInfo.client_id}
+							<label class="opt"><input type="checkbox" checked={!!shareInfo.client_visible} onchange={(e) => setShare({ client_visible: e.currentTarget.checked })} /> aparece na página do cliente</label>
+						{/if}
+					</div>
+					{#if !clients.length}<p class="meta">Cadastre clientes na aba “clientes” para usar a página do cliente.</p>{/if}
+				{:else}
+					<p class="meta">carregando…</p>
+				{/if}
+			</div>
+		{:else if action === 'claude'}
+			<div class="actionbox">
+				<p class="label">Pedir ao Claude para quebrar esta tarefa em checklist, riscos e próximos passos.</p>
+				<div class="row wrap">
+					<a class="btn primary" href={claudeUrl} target="_blank" rel="noopener">abrir no Claude ↗</a>
+					<button class="btn" onclick={copyPrompt}>copiar pedido</button>
+				</div>
+				<p class="meta">Com o conector do πύλη ligado no Claude, ele também consegue criar o checklist direto aqui.</p>
 			</div>
 		{:else if action === 'template'}
 			<form class="actionbox" onsubmit={saveTemplate}>
@@ -747,7 +830,7 @@
 	/* ações em grade de filetes: 6 colunas no computador, 3 no celular */
 	.actions {
 		display: grid;
-		grid-template-columns: repeat(6, 1fr);
+		grid-template-columns: repeat(4, 1fr);
 		border-top: var(--rule);
 		border-left: var(--rule);
 		font-size: var(--t-sm);
@@ -799,6 +882,28 @@
 		display: flex;
 		gap: 8px;
 		align-items: center;
+	}
+	.row.wrap {
+		flex-wrap: wrap;
+	}
+	a.btn {
+		text-decoration: none;
+	}
+	.shareurl {
+		overflow-wrap: anywhere;
+	}
+	.sep {
+		border-top: var(--rule-soft);
+		padding-top: 10px;
+	}
+	.opt {
+		display: flex;
+		gap: 6px;
+		align-items: center;
+		font-size: var(--t-sm);
+	}
+	.opt input {
+		accent-color: var(--accent);
 	}
 	select {
 		border: var(--rule);
@@ -1036,7 +1141,11 @@
 			padding-top: 10px;
 		}
 		.actions {
-			grid-template-columns: repeat(3, 1fr);
+			grid-template-columns: repeat(4, 1fr);
+		}
+		.actions button {
+			font-size: 12px;
+			padding: 9px 2px 8px;
 		}
 	}
 </style>

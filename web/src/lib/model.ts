@@ -139,3 +139,13 @@ export function between(prev: number | undefined, next: number | undefined) {
 
 /** "1 tarefa", "3 tarefas" */
 export const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`;
+
+/** Markdown/HTML do editor → texto simples para prévias (tira tags, inclusive cortadas no meio) */
+export const plainText = (md: string) =>
+	md
+		.replace(/<[^>]*(>|$)/g, '')
+		.replace(/\[([^\]]+)\]\((?:person|task):[^)]+\)/g, '$1')
+		.replace(/\\([\[\]])/g, '$1')
+		.replace(/[#>*_=`~\\]/g, '')
+		.replace(/\s+/g, ' ')
+		.trim();

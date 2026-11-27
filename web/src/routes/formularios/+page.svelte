@@ -1,4 +1,5 @@
 <script lang="ts">
+	import SectionPhoto from '#lib/components/SectionPhoto.svelte';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { api } from '#lib/api.ts';
@@ -94,7 +95,10 @@
 			{/each}
 		</ul>
 	{:else}
-		<p class="label grey">Nenhum formulário ainda. Crie um ou importe do Google Forms.</p>
+		<div class="emptyph">
+			<p class="label grey">Nenhum formulário ainda. Crie um ou importe do Google Forms.</p>
+			<SectionPhoto seed="formularios" height={220} />
+		</div>
 	{/if}
 {:else if !error}
 	<p class="meta">carregando…</p>

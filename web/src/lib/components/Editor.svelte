@@ -215,6 +215,11 @@
 
 	onDestroy(() => editor?.destroy());
 
+	/** Insere texto onde está o cursor (ex.: citar [imagem 2] no roteiro) */
+	export function insert(text: string) {
+		editor?.chain().focus().insertContent(text).run();
+	}
+
 	const active = (name: string, attrs?: object) => {
 		void tick; // reavalia a cada transação
 		return editor?.isActive(name, attrs) ?? false;

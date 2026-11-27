@@ -10,7 +10,7 @@
 
 	type Client = ClientProfile & { id: string; notes: string };
 	type Theme = { id: string; title: string; notes: string; pillar: string; format: string; status: string; task_id: string | null; created_at: number };
-	type Script = { id: string; theme_id: string | null; title: string; format: string; status: string; task_id: string | null; updated_at: number; excerpt: string };
+	type Script = { id: string; theme_id: string | null; title: string; format: string; status: string; task_id: string | null; updated_at: number; excerpt: string; images: number };
 	type Tpl = { id: string; name: string; format: string };
 
 	const cid = $derived(page.params.id!);
@@ -166,10 +166,29 @@
 	const statusName = (s: string) => SCRIPT_STATUS.find((x) => x[0] === s)?.[1] ?? s;
 	const themeTitle = (id: string | null) => themes.find((t) => t.id === id)?.title;
 
+	// ---------- Página do cliente (link público com as tarefas visíveis) ----------
+	type ShareTask = { id: string; title: string; client_visible: number; done_at: number | null; due_at: number | null };
+	let share = $state<{ url: string | null; tasks: ShareTask[] } | null>(null);
+	$effect(() => {
+		if (tab === 'perfil' && !share) api<{ url: string | null; tasks: ShareTask[] }>(`/clients/${cid}/share`).then((d) => (share = d));
+	});
+	async function setPage(enable: boolean) {
+		const r = await api<{ url: string | null }>(`/clients/${cid}/share`, { method: 'PATCH', body: JSON.stringify({ enable }) });
+		if (share) share.url = r.url;
+	}
+	async function setVisible(t: ShareTask, v: boolean) {
+		t.client_visible = v ? 1 : 0;
+		await api(`/tasks/${t.id}/share`, { method: 'PATCH', body: JSON.stringify({ client_visible: v }) });
+	}
+	async function copyText(t: string, msg: string) {
+		await navigator.clipboard.writeText(t);
+		say(msg);
+	}
+
 	// ---------- Claude ----------
-	const ideasUrl = $derived(
+	const ideasPrompt = $derived(
 		client
-			? claudeLink(
+			? (
 					`Você é estrategista de conteúdo para Instagram. Sugira 10 temas novos para o cliente abaixo, variando formatos e pilares.\n\n${profileText(client)}\n\n` +
 						(themes.length ? `Temas que já existem (não repita):\n${themes.slice(0, 60).map((t) => `- ${t.title}`).join('\n')}\n\n` : '') +
 						`Responda SÓ com a lista, um tema por linha, neste formato exato (vou colar no meu sistema):\n` +
@@ -177,6 +196,7 @@
 				)
 			: ''
 	);
+	const ideasUrl = $derived(claudeLink(ideasPrompt));
 </script>
 
 <p class="back meta"><a href={resolve('/clientes')}>← clientes</a></p>
@@ -212,6 +232,7 @@
 		<div class="tools">
 			<button class="link" onclick={() => (bulk = !bulk)}>{bulk ? 'fechar' : 'colar vários'}</button>
 			<a class="link" href={ideasUrl} target="_blank" rel="noopener">pedir temas ao Claude ↗</a>
+			<button class="link" onclick={() => copyText(ideasPrompt, 'pedido copiado: cole no Claude')}>copiar pedido</button>
 		</div>
 
 		{#if bulk}
@@ -302,8 +323,8 @@
 						<span class="meta">{formatName(s.format)} · <span class="st-{s.status}">{statusName(s.status)}</span></span>
 						<span class="tt">{s.title}</span>
 						{#if themeTitle(s.theme_id) && themeTitle(s.theme_id) !== s.title}<span class="meta">tema: {themeTitle(s.theme_id)}</span>{/if}
-						<span class="ex">{s.excerpt.replace(/[#>*_=`]/g, '').replace(/\s+/g, ' ').trim()}</span>
-						<span class="meta">editado {fmtShort(s.updated_at)}</span>
+						<span class="ex">{s.excerpt}</span>
+						<span class="meta">editado {fmtShort(s.updated_at)}{s.images ? ` · ${s.images} ${s.images === 1 ? 'imagem' : 'imagens'}` : ''}</span>
 					</button>
 				</li>
 			{:else}
@@ -324,6 +345,35 @@
 					{/if}
 				</dd>
 			{/each}
+			<dt>página do cliente</dt>
+			<dd class="share">
+				<p class="meta">Um link para o cliente acompanhar as tarefas dele: etapa, prazo, progresso e o que já foi feito. Ligue uma tarefa a este cliente no painel da tarefa → “cliente”.</p>
+				{#if share}
+					{#if share.url}
+						<p class="meta url">{share.url}</p>
+						<div class="row">
+							<button class="btn dark" onclick={() => copyText(share!.url!, 'link copiado')}>copiar link</button>
+							<a class="btn" href={share.url} target="_blank" rel="noopener">ver ↗</a>
+							<button class="link danger" onclick={() => setPage(false)}>desligar</button>
+						</div>
+					{:else}
+						<button class="btn dark" onclick={() => setPage(true)}>gerar link</button>
+					{/if}
+					{#if share.tasks.length}
+						<ul class="stasks">
+							{#each share.tasks as t (t.id)}
+								<li>
+									<label class="opt"><input type="checkbox" checked={!!t.client_visible} onchange={(e) => setVisible(t, e.currentTarget.checked)} /> <span class:done={!!t.done_at}>{t.title}</span></label>
+									<button class="link" onclick={() => (openTask = t.id)}>abrir</button>
+								</li>
+							{/each}
+						</ul>
+					{:else}
+						<p class="meta">Nenhuma tarefa ligada a este cliente ainda.</p>
+					{/if}
+				{/if}
+			</dd>
+
 			<dt></dt>
 			<dd><button class="btn danger" onclick={archive}>{confirmArchive ? 'toque de novo para arquivar' : 'arquivar cliente'}</button></dd>
 		</dl>
@@ -640,6 +690,33 @@
 	}
 	.profile .field {
 		padding: 6px 0;
+	}
+	.share {
+		display: grid;
+		gap: 8px;
+	}
+	.url {
+		overflow-wrap: anywhere;
+	}
+	a.btn {
+		text-decoration: none;
+	}
+	.stasks {
+		list-style: none;
+		margin: 0;
+		padding: 0;
+		border-top: var(--rule-soft);
+	}
+	.stasks li {
+		display: flex;
+		justify-content: space-between;
+		gap: 10px;
+		padding: 7px 0;
+		border-bottom: var(--rule-soft);
+	}
+	.stasks .done {
+		text-decoration: line-through;
+		color: var(--grey);
 	}
 	.btn.danger:hover {
 		background: var(--accent);

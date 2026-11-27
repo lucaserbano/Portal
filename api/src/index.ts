@@ -7,6 +7,12 @@ import { boards } from './boards';
 import { syncTasks } from './caldav';
 import { forms, publicForms } from './forms';
 import { social } from './social';
+import { publicShare, share } from './share';
+import { widgetAdmin, widgetPublic } from './widget';
+import { OAuthProvider, type OAuthHelpers } from '@cloudflare/workers-oauth-provider';
+import { mcpHandler } from './mcp';
+import { loginImage, siteImages } from './site';
+import { authorize } from './oauth';
 import { details } from './details';
 import { verify } from './files';
 
@@ -23,6 +29,8 @@ export interface Env {
   ICLOUD_EMAIL?: string;
   ICLOUD_APP_PASSWORD?: string;
   PYLE_CALENDAR?: string;
+  OAUTH_KV: KVNamespace;
+  OAUTH_PROVIDER: OAuthHelpers;
   RESEND_API_KEY?: string;
   NOTIFY_EMAIL?: string;
 }
@@ -90,6 +98,9 @@ app.get('/files/:key{.+}', async (c) => {
 
 // ---------- Formulários públicos (link /f/slug, sem login) ----------
 app.route('/', publicForms);
+app.route('/', publicShare);
+app.route('/', widgetPublic);
+app.route('/', loginImage);
 
 // ---------- Tudo abaixo exige sessão ----------
 const api = new Hono<{ Bindings: Env }>();
@@ -139,13 +150,44 @@ api.route('/', details);
 api.route('/', agenda);
 api.route('/', forms);
 api.route('/', social);
+api.route('/', share);
+api.route('/', widgetAdmin);
+api.route('/', siteImages);
 
 api.post('/backup', async (c) => c.json(await runBackup(c.env)));
 
 app.route('/', api);
 
+// ---------- Conector do Claude (MCP + OAuth) ----------
+// O OAuthProvider fica na frente de tudo: /mcp exige token OAuth; /authorize é a página de senha;
+// o resto (a API do portal) segue para o app Hono como antes.
+const providers = new Map<string, OAuthProvider<Env>>();
+function provider(origin: string) {
+  let p = providers.get(origin);
+  if (!p) {
+    p = new OAuthProvider<Env>({
+      apiRoute: '/mcp',
+      apiHandler: mcpHandler,
+      defaultHandler: {
+        fetch: (request: Request, env: Env, ctx: ExecutionContext) =>
+          new URL(request.url).pathname === '/authorize' ? authorize(request, env) : app.fetch(request, env, ctx),
+      },
+      authorizeEndpoint: '/authorize',
+      tokenEndpoint: '/oauth/token',
+      clientRegistrationEndpoint: '/oauth/register',
+      scopesSupported: ['mcp:read', 'mcp:write', 'offline_access'],
+      resourceMetadata: { resource: `${origin}/mcp`, authorization_servers: [origin] },
+      requiredScopes: ['mcp:read'],
+      clientIdMetadataDocumentEnabled: true,
+      accessTokenTTL: 3600,
+    } as any);
+    providers.set(origin, p);
+  }
+  return p;
+}
+
 export default {
-  fetch: app.fetch,
+  fetch: (request: Request, env: Env, ctx: ExecutionContext) => provider(new URL(request.url).origin).fetch(request, env, ctx),
   async scheduled(_event: ScheduledController, env: Env, ctx: ExecutionContext) {
     ctx.waitUntil(runBackup(env).then((r) => console.log('backup', JSON.stringify(r))));
     ctx.waitUntil(syncTasks(env, env.SITE_URL).then((r) => console.log('sync', JSON.stringify(r))).catch((e) => console.log('sync', String(e))));

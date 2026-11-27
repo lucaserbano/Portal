@@ -3,6 +3,8 @@
   "name": "pyle-api",
   "main": "src/index.ts",
   "compatibility_date": "2026-11-01",
+  // exigido pelo OAuth do conector do Claude (busca de documentos de cliente só em endereços públicos)
+  "compatibility_flags": ["global_fetch_strictly_public"],
   "observability": { "enabled": true },
   "d1_databases": [
     {
@@ -13,6 +15,8 @@
     }
   ],
   "r2_buckets": [{ "binding": "FILES", "bucket_name": "pyle-files" }],
+  // tokens do conector do Claude (OAuth)
+  "kv_namespaces": [{ "binding": "OAUTH_KV", "id": "e4eadb3a21864a8aa6e1f39e5fb7611c" }],
   "vars": {
     "ALLOWED_ORIGINS": "https://lucaserbano.github.io,http://localhost:5173",
     "BACKUP_REPO": "lucaserbano/pyle-dados",

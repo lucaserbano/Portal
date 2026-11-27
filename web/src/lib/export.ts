@@ -37,6 +37,7 @@ export type FieldKey = (typeof FIELDS)[number]['key'];
 /** markdown → texto simples (para csv, xlsx, docx e pdf) */
 export function plain(md: string) {
 	return md
+		.replace(/\\([\[\]*_#>`~-])/g, '$1') // escapes do markdown (\[imagem 1\] → [imagem 1])
 		.replace(/\[([^\]]+)\]\((?:person|task):[^)]+\)/g, '$1')
 		.replace(/\[([^\]]+)\]\((https?:[^)]+)\)/g, '$1 ($2)')
 		.replace(/<\/?(u|mark)[^>]*>/g, '')
@@ -255,6 +256,111 @@ export async function toPDF(title: string, subtitle: string, groups: { name: str
 	return doc.output('blob');
 }
 
+// ---------- PDF do roteiro (para o designer) ----------
+export type ScriptPdf = {
+	client: string;
+	title: string;
+	format: string;
+	status: string;
+	body_md: string;
+	images: { url: string; caption: string }[];
+};
+
+/** Imagem (qualquer formato que o navegador abra) → JPEG para o PDF */
+async function toJpeg(url: string) {
+	const blob = await (await fetch(url)).blob();
+	const bmp = await createImageBitmap(blob);
+	const c = document.createElement('canvas');
+	const scale = Math.min(1, 2000 / Math.max(bmp.width, bmp.height));
+	c.width = Math.round(bmp.width * scale);
+	c.height = Math.round(bmp.height * scale);
+	const ctx = c.getContext('2d')!;
+	ctx.fillStyle = '#fff';
+	ctx.fillRect(0, 0, c.width, c.height);
+	ctx.drawImage(bmp, 0, 0, c.width, c.height);
+	return { data: c.toDataURL('image/jpeg', 0.88), w: c.width, h: c.height };
+}
+
+export async function scriptToPDF(sc: ScriptPdf) {
+	const { jsPDF } = await import('jspdf');
+	const doc = new jsPDF({ unit: 'pt', format: 'a4' });
+	const W = doc.internal.pageSize.getWidth();
+	const H = doc.internal.pageSize.getHeight();
+	const M = 48;
+	const maxW = W - M * 2;
+	let y = M;
+	const PINK: [number, number, number] = [255, 0, 111];
+	const need = (h: number) => {
+		if (y + h > H - M) {
+			doc.addPage();
+			y = M;
+		}
+	};
+	const text = (s: string, size: number, o: { color?: [number, number, number]; bold?: boolean; indent?: number; gap?: number } = {}) => {
+		doc.setFont('helvetica', o.bold ? 'bold' : 'normal');
+		doc.setFontSize(size);
+		doc.setTextColor(...(o.color ?? [0, 0, 0]));
+		for (const l of doc.splitTextToSize(pdfSafe(s), maxW - (o.indent ?? 0)) as string[]) {
+			need(size * 1.4);
+			doc.text(l, M + (o.indent ?? 0), y + size);
+			y += size * 1.4;
+		}
+		y += o.gap ?? 0;
+	};
+
+	text(`${sc.client} · ${sc.format} · ${sc.status}`, 9, { color: [128, 128, 128], gap: 4 });
+	text(sc.title, 24, { gap: 6 });
+	need(10);
+	doc.setDrawColor(...PINK);
+	doc.setLineWidth(2);
+	doc.line(M, y, W - M, y);
+	y += 16;
+
+	// corpo: linha toda em negrito vira título de seção; [imagem N] fica em magenta
+	const body = plain(sc.body_md.replace(/^\*\*(.+)\*\*\s*$/gm, '§§$1')).split('\n');
+	for (const raw of body) {
+		const line = raw.trimEnd();
+		if (!line.trim()) {
+			y += 6;
+			continue;
+		}
+		if (line.startsWith('§§')) {
+			y += 6;
+			const h = line.slice(2);
+			text(h.replace(/\[imagem (\d+)\]/gi, ' [IMAGEM $1]'), 12.5, { bold: true, gap: 2, color: /\[imagem \d+\]/i.test(h) ? PINK : undefined });
+		} else if (/\[imagem \d+\]/i.test(line)) {
+			text(line.replace(/\[imagem (\d+)\]/gi, '[IMAGEM $1]'), 10.5, { color: PINK });
+		} else {
+			text(line, 10.5);
+		}
+	}
+
+	// imagens numeradas, uma por página, inteiras
+	for (const [i, im] of sc.images.entries()) {
+		try {
+			const j = await toJpeg(im.url);
+			doc.addPage();
+			y = M;
+			text(`Imagem ${i + 1}${im.caption ? ` — ${im.caption}` : ''}`, 12, { bold: true, color: PINK, gap: 8 });
+			const boxH = H - y - M - 20;
+			const r = Math.min(maxW / j.w, boxH / j.h);
+			doc.addImage(j.data, 'JPEG', M + (maxW - j.w * r) / 2, y, j.w * r, j.h * r);
+		} catch {
+			text(`Imagem ${i + 1}: não foi possível incluir (formato não suportado neste navegador).`, 10, { color: [128, 128, 128] });
+		}
+	}
+
+	const pages = doc.getNumberOfPages();
+	for (let i = 1; i <= pages; i++) {
+		doc.setPage(i);
+		doc.setFont('helvetica', 'normal');
+		doc.setFontSize(8);
+		doc.setTextColor(128, 128, 128);
+		doc.text(`${pdfSafe(sc.client + ' · ' + sc.title)} · ${i}/${pages}`, W - M, H - 24, { align: 'right' });
+	}
+	return doc.output('blob');
+}
+
 // ---------- entregar o arquivo ----------
 export const fileSlug = (s: string) =>
 	s.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^\w]+/g, '-').replace(/^-|-$/g, '').toLowerCase() || 'export';
@@ -266,7 +372,8 @@ export function shareNow(file: File) {
 
 export async function deliver(blob: Blob, filename: string, share = false) {
 	const file = new File([blob], filename, { type: blob.type });
-	if (share && navigator.canShare?.({ files: [file] })) {
+	// compartilhar (WhatsApp etc.) só no celular; no computador, baixa o arquivo
+	if (share && matchMedia('(pointer: coarse)').matches && navigator.canShare?.({ files: [file] })) {
 		try {
 			await navigator.share({ files: [file], title: filename });
 			return 'shared';

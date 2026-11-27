@@ -6,6 +6,7 @@
 	import { resolve } from '$app/paths';
 	import { api, auth } from '#lib/api.ts';
 	import type { LayoutProps } from './$types';
+	import Intro from '#lib/components/Intro.svelte';
 
 	let { children }: LayoutProps = $props();
 
@@ -19,7 +20,7 @@
 
 	const isLogin = $derived(page.route.id === '/login');
 	// formulário público (/f/slug): sem login e sem o menu do portal
-	const isPublic = $derived(page.route.id?.startsWith('/f/') ?? false);
+	const isPublic = $derived(/^\/(f|t|c)\//.test(page.route.id ?? ''));
 
 	$effect(() => {
 		if (!isLogin && !isPublic && !auth.token) goto(resolve('/login'));
@@ -29,6 +30,19 @@
 		const id = page.route.id ?? '';
 		return href === '/' ? id === '/' || id.startsWith('/b/') : id.startsWith(href);
 	}
+
+	// Abertura: toda vez que se chega à página principal (login, recarregar, voltar para "quadros")
+	let showIntro = $state(false);
+	let introKey = $state(0);
+	let lastRoute = '';
+	$effect(() => {
+		const id = page.route.id ?? '';
+		if (id === '/' && lastRoute !== '/' && auth.token) {
+			showIntro = true;
+			introKey++;
+		}
+		lastRoute = id;
+	});
 
 	let theme = $state(document.documentElement.dataset.theme ?? 'light');
 	function toggleTheme() {
@@ -65,6 +79,7 @@
 				{/each}
 			</nav>
 			<span class="right">
+				<a class="out" href={resolve('/ajustes')} class:on={active('/ajustes')}>ajustes</a>
 				<button class="out" onclick={toggleTheme} aria-label="Alternar modo noturno">{theme === 'dark' ? 'dia' : 'noite'}</button>
 				<button class="out" onclick={logout}>sair</button>
 			</span>
@@ -73,6 +88,9 @@
 	<main class="page">
 		{@render children()}
 	</main>
+	{#if showIntro}
+		{#key introKey}<Intro ondone={() => (showIntro = false)} />{/key}
+	{/if}
 {/if}
 
 <style>
@@ -121,8 +139,12 @@
 		font-size: var(--t-sm);
 		cursor: pointer;
 	}
-	.out:hover {
+	.out:hover,
+	.out.on {
 		color: var(--accent);
+	}
+	a.out {
+		text-decoration: none;
 	}
 	@media (max-width: 720px) {
 		.brand {

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import SectionPhoto from '#lib/components/SectionPhoto.svelte';
 	import { api } from '#lib/api.ts';
 	import { fmtShort, type Task } from '#lib/model.ts';
 	import Doodle from '#lib/components/Doodle.svelte';
@@ -110,6 +111,7 @@
 	<div class="empty">
 		<Doodle name="inbox" size={56} />
 		<p class="label">Inbox vazio. Tarefas escritas aqui ficam esperando até você decidir para onde vão.</p>
+		<SectionPhoto seed="inbox" height={220} />
 	</div>
 {/if}
 
