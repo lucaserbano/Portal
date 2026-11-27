@@ -5,6 +5,7 @@ import { runBackup } from './backup';
 import { agenda } from './agenda';
 import { boards } from './boards';
 import { syncTasks } from './caldav';
+import { forms, publicForms } from './forms';
 import { details } from './details';
 import { verify } from './files';
 
@@ -21,6 +22,8 @@ export interface Env {
   ICLOUD_EMAIL?: string;
   ICLOUD_APP_PASSWORD?: string;
   PYLE_CALENDAR?: string;
+  RESEND_API_KEY?: string;
+  NOTIFY_EMAIL?: string;
 }
 
 const now = () => Math.floor(Date.now() / 1000);
@@ -84,6 +87,9 @@ app.get('/files/:key{.+}', async (c) => {
   return new Response(obj.body, { headers: h });
 });
 
+// ---------- Formulários públicos (link /f/slug, sem login) ----------
+app.route('/', publicForms);
+
 // ---------- Tudo abaixo exige sessão ----------
 const api = new Hono<{ Bindings: Env }>();
 
@@ -130,6 +136,7 @@ api.get('/boards', async (c) => {
 api.route('/', boards);
 api.route('/', details);
 api.route('/', agenda);
+api.route('/', forms);
 
 api.post('/backup', async (c) => c.json(await runBackup(c.env)));
 

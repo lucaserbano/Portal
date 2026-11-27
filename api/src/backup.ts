@@ -1,5 +1,6 @@
 // Backup diário: exporta tudo como .md para o repositório PRIVADO (BACKUP_REPO).
 import type { Env } from './index';
+import { formsMarkdown } from './forms';
 
 type Row = Record<string, any>;
 
@@ -59,6 +60,7 @@ export async function buildMarkdownFiles(env: Env) {
     files[`boards/${slug(String(b.name))}.md`] = md;
   }
   files['inbox.md'] = `# Inbox\n\n` + inbox.map(taskMd).join('');
+  Object.assign(files, await formsMarkdown(env));
   return files;
 }
 

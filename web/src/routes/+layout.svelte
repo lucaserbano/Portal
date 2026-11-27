@@ -18,9 +18,11 @@
 	] as const;
 
 	const isLogin = $derived(page.route.id === '/login');
+	// formulário público (/f/slug): sem login e sem o menu do portal
+	const isPublic = $derived(page.route.id?.startsWith('/f/') ?? false);
 
 	$effect(() => {
-		if (!isLogin && !auth.token) goto(resolve('/login'));
+		if (!isLogin && !isPublic && !auth.token) goto(resolve('/login'));
 	});
 
 	function active(href: string) {
@@ -49,7 +51,7 @@
 	<link rel="icon" href={favicon} />
 </svelte:head>
 
-{#if isLogin}
+{#if isLogin || isPublic}
 	{@render children()}
 {:else if auth.token}
 	<header class="page top">
