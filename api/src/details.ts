@@ -49,7 +49,7 @@ export async function cardExtras(env: Env, reqUrl: string, taskIds: string[]) {
   const [items, covers, people] = await Promise.all([
     env.DB.prepare(`SELECT task_id, weight, done FROM checklist_items WHERE task_id IN (${ph})`).bind(...taskIds).all<Row>(),
     env.DB.prepare(
-      `SELECT t.id, a.r2_key FROM tasks t JOIN attachments a ON a.id = t.cover_key WHERE t.id IN (${ph}) AND a.kind = 'file'`,
+      `SELECT t.id, a.r2_key FROM tasks t JOIN attachments a ON a.id = t.cover_key WHERE t.id IN (${ph}) AND a.kind = 'file' AND a.mime LIKE 'image/%'`,
     )
       .bind(...taskIds)
       .all<Row>(),

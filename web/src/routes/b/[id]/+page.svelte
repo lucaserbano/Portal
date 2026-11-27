@@ -29,6 +29,10 @@
 	let labels = $state<Label[]>([]);
 	let people = $state<{ id: string; name: string }[]>([]);
 	// Faixa com todos os quadros, para trocar rápido
+	let nameDraft = $state('');
+	$effect(() => {
+		nameDraft = board?.name ?? '';
+	});
 	let allBoards = $state<{ id: string; name: string }[]>([]);
 	api<{ boards: { id: string; name: string }[] }>('/destinations').then((d) => (allBoards = d.boards));
 	let templates = $state<{ id: string; name: string }[]>([]);
@@ -214,22 +218,28 @@
 {#if error}
 	<p class="err">{error}</p>
 {:else if board}
-	<nav class="tabs" aria-label="Quadros">
-		{#each allBoards as b (b.id)}
-			<a href={resolve('/b/[id]', { id: b.id })} class:on={b.id === bid} aria-current={b.id === bid ? 'page' : undefined}
-				>{b.id === bid ? board.name : b.name}</a
-			>
-		{/each}
-	</nav>
-
 	<section class="grid head">
-		<input
-			class="title-lg name"
-			value={board.name}
-			aria-label="Nome do quadro"
-			onchange={(e) => renameBoard(e.currentTarget.value)}
-			onkeydown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
-		/>
+		<nav class="titles" aria-label="Quadros">
+			{#each allBoards.length ? allBoards : [board] as b (b.id)}
+				{#if b.id === bid}
+					<!-- o texto invisível dá a largura exata; o campo fica por cima -->
+					<span class="namewrap title-lg">
+						<span class="sizer" aria-hidden="true">{nameDraft || ' '}</span>
+					<input
+						class="title-lg name"
+						value={board.name}
+						aria-label="Nome do quadro (clique para renomear)"
+						aria-current="page"
+						oninput={(e) => (nameDraft = e.currentTarget.value)}
+						onchange={(e) => renameBoard(e.currentTarget.value)}
+						onkeydown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
+					/>
+					</span>
+				{:else}
+					<a class="title-lg other" href={resolve('/b/[id]', { id: b.id })}>{b.name}</a>
+				{/if}
+			{/each}
+		</nav>
 		<div class="stats meta">
 			<span>{plural(totals.total, 'tarefa')}</span>
 			<span>{totals.ok} no prazo</span>
@@ -370,36 +380,49 @@
 {/if}
 
 <style>
-	.tabs {
-		display: flex;
-		gap: 4px 22px;
-		overflow-x: auto;
-		white-space: nowrap;
-		margin: -8px calc(var(--gutter) * -1) 18px;
-		padding: 0 var(--gutter) 2px;
-		font-size: var(--t-sm);
-		scrollbar-width: none;
-	}
-	.tabs a {
-		text-decoration: none;
-		color: var(--grey);
-		padding: 4px 0;
-	}
-	.tabs a:hover {
-		color: var(--black);
-	}
-	.tabs a.on {
-		color: var(--black);
-		box-shadow: inset 0 -2px 0 var(--accent);
-	}
 	.head {
 		align-items: end;
 		padding-bottom: 12px;
 		border-bottom: var(--rule);
 		margin-bottom: 14px;
 	}
+	.titles {
+		grid-column: 1 / span 7;
+		display: flex;
+		align-items: baseline;
+		gap: 0 0.7em;
+		overflow-x: auto;
+		white-space: nowrap;
+		scrollbar-width: none;
+		min-width: 0;
+	}
+	.titles::-webkit-scrollbar {
+		display: none;
+	}
+	.other {
+		color: #c8c8c8;
+		text-decoration: none;
+		flex: none;
+	}
+	.other:hover {
+		color: var(--grey);
+	}
+	.namewrap {
+		position: relative;
+		flex: none;
+		display: inline-block;
+	}
+	.sizer {
+		visibility: hidden;
+		white-space: pre;
+	}
 	.name {
-		grid-column: 1 / span 6;
+		position: absolute;
+		inset: 0;
+		width: 100%;
+		color: var(--black);
+		font: inherit;
+		letter-spacing: inherit;
 		border: 0;
 		padding: 0;
 		background: none;
@@ -410,7 +433,7 @@
 		box-shadow: 0 2px 0 var(--accent);
 	}
 	.stats {
-		grid-column: 7 / span 6;
+		grid-column: 8 / span 5;
 		justify-self: end;
 		display: flex;
 		flex-wrap: wrap;
@@ -641,7 +664,7 @@
 		color: var(--accent);
 	}
 	@media (max-width: 720px) {
-		.name,
+		.titles,
 		.stats {
 			grid-column: 1 / -1;
 			justify-self: start;

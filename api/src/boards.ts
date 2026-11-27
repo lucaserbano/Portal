@@ -196,6 +196,10 @@ boards.patch('/tasks/:id', async (c) => {
   const body = await c.req.json<Record<string, any>>();
   const cur = await c.env.DB.prepare('SELECT * FROM tasks WHERE id = ?').bind(tid).first<Task>();
   if (!cur) return c.json({ error: 'Tarefa não encontrada.' }, 404);
+  if (body.cover_key) {
+    const img = await c.env.DB.prepare("SELECT 1 FROM attachments WHERE id = ? AND task_id = ? AND mime LIKE 'image/%'").bind(body.cover_key, tid).first();
+    if (!img) return c.json({ error: 'A capa precisa ser uma imagem anexada a esta tarefa.' }, 400);
+  }
   if (body.priority !== undefined && body.priority !== null && !PRIORITIES.includes(body.priority)) {
     return c.json({ error: 'Prioridade inválida.' }, 400);
   }
