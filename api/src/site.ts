@@ -19,11 +19,11 @@ siteImages.get('/site-images', async (c) => {
   return c.json({ photos });
 });
 
-// Uma foto "vibe" para a tela de login (muda a cada dia)
+// A foto da tela de login: a sala de luz com a cadeira (cosmos_470762718, tom já ajustado)
+const LOGIN_PHOTO = 'pyle-23.webp';
 export const loginImage = new Hono<{ Bindings: Env }>();
 loginImage.get('/public/login-image', async (c) => {
-  const vibe = (await manifest(c.env)).filter((p) => p.vibe);
-  if (!vibe.length) return c.json({ photo: null });
-  const p = vibe[Math.floor(Date.now() / 86400000) % vibe.length];
+  const p = (await manifest(c.env)).find((x) => x.file === LOGIN_PHOTO);
+  if (!p) return c.json({ photo: null });
   return c.json({ photo: { url: await signedUrl(c.env, new URL(c.req.url).origin, `site/${p.file}`), w: p.w, h: p.h } });
 });

@@ -1,5 +1,4 @@
 <script lang="ts">
-	import PhotoMosaic from '#lib/components/PhotoMosaic.svelte';
 	import { resolve } from '$app/paths';
 	import { api } from '#lib/api.ts';
 	import Doodle from '#lib/components/Doodle.svelte';
@@ -57,8 +56,6 @@
 {:catch err}
 	<p class="err" role="alert">{err.message}</p>
 {/await}
-
-<PhotoMosaic />
 
 <style>
 	.head {

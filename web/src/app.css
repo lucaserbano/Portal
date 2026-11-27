@@ -140,23 +140,14 @@ select {
 	background: linear-gradient(transparent 62%, var(--accent) 62%, var(--accent) 88%, transparent 88%);
 }
 
-/* ---------- Fotos nos lugares do portal ---------- */
-.emptyph {
-	display: grid;
-	gap: 18px;
-	justify-items: start;
-}
-.emptyph figure {
-	justify-content: flex-start;
-}
-.footph,
-.ajph {
-	margin-top: calc(var(--gutter) * 1.5);
-	display: flex;
-	justify-content: flex-start;
-}
-.ajph {
-	margin: 0 0 var(--gutter);
+/* preenchimento automático (Chrome/Safari) sem fundo colorido, nos dois modos */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus {
+	-webkit-text-fill-color: var(--black);
+	-webkit-box-shadow: 0 0 0 1000px var(--white) inset;
+	caret-color: var(--black);
+	transition: background-color 9999s;
 }
 
 /* ---------- Componentes base ---------- */

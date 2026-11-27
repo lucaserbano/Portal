@@ -1,5 +1,4 @@
 <script lang="ts">
-	import SectionPhoto from '#lib/components/SectionPhoto.svelte';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { api } from '#lib/api.ts';
@@ -56,10 +55,7 @@
 			{/each}
 		</ul>
 	{:else}
-		<div class="emptyph">
-			<p class="label grey">Nenhum cliente ainda. Cada cliente guarda o perfil (tom de voz, pilares, o que evitar), um banco de temas e os roteiros.</p>
-			<SectionPhoto seed="clientes" height={220} />
-		</div>
+		<p class="label grey">Nenhum cliente ainda. Cada cliente guarda o perfil (tom de voz, pilares, o que evitar), um banco de temas e os roteiros.</p>
 	{/if}
 {:else if !error}
 	<p class="meta">carregando…</p>

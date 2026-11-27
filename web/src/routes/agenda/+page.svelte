@@ -4,7 +4,6 @@
 </script>
 
 <script lang="ts">
-	import SectionPhoto from '#lib/components/SectionPhoto.svelte';
 	import { api } from '#lib/api.ts';
 	import { PRIORITY_LABEL, cardVars, labelVars, isLate, type Priority } from '#lib/model.ts';
 	import TaskPanel from '#lib/components/TaskPanel.svelte';
@@ -409,7 +408,6 @@
 	</section>
 {/if}
 
-<div class="footph"><SectionPhoto seed="agenda" height={120} /></div>
 <p class="meta foot">
 	As tarefas com data vão sozinhas para o calendário “πύλη” do iPhone, com aviso 1 h antes do prazo. Toque duas vezes num dia para criar um evento.
 </p>

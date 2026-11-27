@@ -1,7 +1,7 @@
 <script lang="ts">
 	// Abertura: "πύλη" vem em zoom acelerando, se desfaz em feixes de linhas finas que viram portais
 	// (aberturas retangulares, como as salas de luz de Turrell) e a câmera atravessa o túnel até a página.
-	// Canvas puro, ~3 s. Toque/clique pula. Com "reduzir movimento", só um esmaecer rápido.
+	// Canvas puro, ~1,8 s. Toque/clique pula. Com "reduzir movimento", só um esmaecer rápido.
 	import { onMount } from 'svelte';
 
 	let { ondone }: { ondone: () => void } = $props();
@@ -12,9 +12,9 @@
 	const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 	const PINK = [255, 0, 111] as const;
-	const T_ZOOM = 1.25; // fim do zoom da palavra
-	const T_TUNNEL = 2.45; // fim do túnel
-	const T_END = 3.25;
+	const T_ZOOM = 0.72; // fim do zoom da palavra
+	const T_TUNNEL = 1.45; // começa a esmaecer ainda dentro do túnel
+	const T_END = 1.8;
 
 	function finish() {
 		if (fading) return;
@@ -31,7 +31,7 @@
 			return () => clearTimeout(t);
 		}
 		const ctx = canvas.getContext('2d')!;
-		const dpr = Math.min(2, devicePixelRatio || 1);
+		const dpr = Math.min(1.5, devicePixelRatio || 1); // leve no iPhone
 		let W = 0;
 		let H = 0;
 		const resize = () => {
@@ -59,10 +59,10 @@
 
 		// portais: proporção de porta (estreita e alta), cada um nasce no fundo e passa pela câmera
 		type Portal = { z0: number; ratio: number; lines: number; seed: number; fill: number };
-		const portals: Portal[] = Array.from({ length: 14 }, (_, i) => ({
-			z0: 1 + i * 0.55,
+		const portals: Portal[] = Array.from({ length: 9 }, (_, i) => ({
+			z0: 0.9 + i * 0.75,
 			ratio: i % 3 === 0 ? 0.5 : i % 3 === 1 ? 0.62 : 0.42,
-			lines: 5 + (i % 4) * 2,
+			lines: 3 + (i % 3),
 			seed: i * 97.13,
 			fill: i % 4
 		}));
@@ -74,7 +74,7 @@
 		// traço "à mão": retângulo com pequenas tremidas que mudam a cada ~4 quadros (boil)
 		function wobblyRect(cx: number, cy: number, w: number, h: number, seed: number, amp: number) {
 			const pts: [number, number][] = [];
-			const steps = 6;
+			const steps = 4;
 			const corners: [number, number][] = [
 				[cx - w / 2, cy - h / 2],
 				[cx + w / 2, cy - h / 2],
@@ -91,11 +91,7 @@
 			}
 			ctx.beginPath();
 			ctx.moveTo(pts[0][0], pts[0][1]);
-			for (let i = 1; i < pts.length; i++) {
-				const [x, y] = pts[i];
-				const [px, py] = pts[i - 1];
-				ctx.quadraticCurveTo(px, py, (px + x) / 2, (py + y) / 2);
-			}
+			for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i][0], pts[i][1]);
 			ctx.closePath();
 			ctx.stroke();
 		}
@@ -113,20 +109,20 @@
 			const boil = Math.floor(t * 15); // a tremida muda ~15 vezes por segundo
 
 			// ---------- 1. a palavra em zoom acelerando, se desfazendo em linhas ----------
-			if (t < T_ZOOM + 0.25) {
+			if (t < T_ZOOM + 0.2) {
 				const p = Math.min(1, t / T_ZOOM);
 				const base = Math.min(W * 0.5, 420) / tw;
-				const scale = base * Math.exp(Math.pow(p, 3) * 5.6); // acelera até encher a tela
+				const scale = base * Math.exp(Math.pow(p, 2.6) * 5.2); // acelera até encher a tela
 				const dw = tw * scale;
 				const dh = word.height * scale;
-				const dissolve = Math.max(0, (p - 0.66) / 0.34); // 0 → 1: vira linhas
-				const alpha = t < 0.18 ? t / 0.18 : t > T_ZOOM ? Math.max(0, 1 - (t - T_ZOOM) / 0.25) : 1;
+				const dissolve = Math.max(0, (p - 0.6) / 0.4); // 0 → 1: vira linhas
+				const alpha = t < 0.12 ? t / 0.12 : t > T_ZOOM ? Math.max(0, 1 - (t - T_ZOOM) / 0.2) : 1;
 				ctx.globalAlpha = alpha;
 				if (dissolve <= 0) {
 					ctx.drawImage(word, cx - dw / 2, cy - dh / 2, dw, dh);
 				} else {
 					// fatias horizontais finas que se afastam do centro (como o N da Netflix virando fitas)
-					const slices = 90;
+					const slices = 48;
 					for (let i = 0; i < slices; i++) {
 						const sy = (i / slices) * word.height;
 						const sh = word.height / slices;
@@ -140,11 +136,11 @@
 			}
 
 			// ---------- 2. túnel de portais desenhados em feixes de linhas ----------
-			if (t > T_ZOOM - 0.35 && t < T_END) {
-				const speed = 2.6;
-				const tt = Math.max(0, t - (T_ZOOM - 0.35));
-				const fadeIn = Math.min(1, tt / 0.35);
-				const SPAN = portals.length * 0.55;
+			if (t > T_ZOOM - 0.3 && t < T_END + 0.4) {
+				const speed = 4.2;
+				const tt = Math.max(0, t - (T_ZOOM - 0.3));
+				const fadeIn = Math.min(1, tt / 0.25);
+				const SPAN = portals.length * 0.75;
 				const travel = tt * speed * (1 + tt * 0.9);
 				const ordered = portals
 					// túnel contínuo: quem passa da câmera volta para o fundo
@@ -160,50 +156,28 @@
 					const a = fadeIn * Math.min(1, (8 - pt.z) / 3) * (pt.z < 0.25 ? pt.z / 0.25 : 1);
 					// luz dentro da abertura (como a sala vermelha): gradiente magenta → preto
 					if (pt.fill === 1 || pt.fill === 3) {
-						const g = ctx.createRadialGradient(cx, cy + h * 0.2, 0, cx, cy, Math.max(w, h) * 0.7);
-						g.addColorStop(0, `rgba(${PINK},${0.55 * a})`);
-						g.addColorStop(1, 'rgba(0,0,0,0)');
-						ctx.fillStyle = g;
+						ctx.fillStyle = `rgba(${PINK},${0.12 * a})`;
 						ctx.fillRect(cx - w / 2, cy - h / 2, w, h);
 					}
 					// feixe de linhas finas: brilho largo e fraco + linhas finas nítidas
 					for (let k = 0; k < pt.lines; k++) {
-						const inset = 1 - k * 0.035;
-						const amp = 2 + near * 9;
-						ctx.lineWidth = 6 + near * 10;
-						ctx.strokeStyle = `rgba(${PINK},${0.06 * a})`;
-						wobblyRect(cx, cy, w * inset, h * inset, pt.seed + k * 5 + boil * 1.7, amp);
-						ctx.lineWidth = 0.6 + near * 1.4;
+						const inset = 1 - k * 0.04;
+						const amp = 2 + near * 8;
+						const seed = pt.seed + k * 5 + boil * 1.7;
+						// brilho só nos portais perto da câmera (economiza desenho)
+						if (near > 0.35 && k === 0) {
+							ctx.lineWidth = 10 + near * 8;
+							ctx.strokeStyle = `rgba(${PINK},${0.08 * a})`;
+							wobblyRect(cx, cy, w * inset, h * inset, seed, amp);
+						}
+						ctx.lineWidth = 0.7 + near * 1.3;
 						ctx.strokeStyle = k % 3 === 2 ? `rgba(255,255,255,${0.55 * a})` : `rgba(${PINK},${0.9 * a})`;
-						wobblyRect(cx, cy, w * inset, h * inset, pt.seed + k * 5 + boil * 1.7, amp);
+						wobblyRect(cx, cy, w * inset, h * inset, seed, amp);
 					}
-				}
-				// final (como a sala de luz vermelha): a tela se enche de magenta e uma porta preta cresce e engole tudo
-				if (t > T_TUNNEL - 0.45) {
-					const q = Math.min(1, (t - (T_TUNNEL - 0.45)) / 0.45);
-					const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, Math.hypot(W, H) * 0.6);
-					g.addColorStop(0, `rgba(${PINK},${q})`);
-					g.addColorStop(1, `rgba(120,0,52,${q})`);
-					ctx.fillStyle = g;
-					ctx.fillRect(0, 0, W, H);
-				}
-				if (t > T_TUNNEL - 0.15) {
-					const q = Math.min(1, (t - (T_TUNNEL - 0.15)) / (T_END - T_TUNNEL + 0.05));
-					const e = q * q * q;
-					const h = H * (0.32 + e * 2.6);
-					const w = h * 0.42;
-					// brilho em volta da porta
-					ctx.fillStyle = `rgba(${PINK},0.35)`;
-					ctx.fillRect(cx - w / 2 - 14, cy - h / 2 - 14, w + 28, h + 28);
-					ctx.fillStyle = '#000';
-					ctx.fillRect(cx - w / 2, cy - h / 2, w, h);
-					ctx.lineWidth = 1;
-					ctx.strokeStyle = 'rgba(255,255,255,0.5)';
-					wobblyRect(cx, cy, w, h, 7 + boil * 1.7, 2.5);
 				}
 			}
 
-			if (t >= T_END) finish();
+			if (t >= T_TUNNEL) finish();
 			if (!gone && t < T_END + 0.6) raf = requestAnimationFrame(frame);
 		};
 		raf = requestAnimationFrame(frame);

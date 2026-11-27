@@ -10,12 +10,3 @@ export function photos() {
 		.catch(() => ((cache = null), []));
 	return cache;
 }
-
-/** Uma foto fixa para cada lugar, que muda a cada dia (sem repetir as "vibe", que ficam no mosaico) */
-export function pick(list: Photo[], seed: string, vibe = false) {
-	const pool = list.filter((p) => p.vibe === vibe);
-	if (!pool.length) return null;
-	let h = Math.floor(Date.now() / 86400000);
-	for (const ch of seed) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
-	return pool[h % pool.length];
-}

@@ -40,20 +40,15 @@
 		<span class="meta right">acesso restrito</span>
 	</div>
 
-	<form class="grid" onsubmit={submit}>
+	<form class="grid mid" onsubmit={submit}>
 		<div class="door">
 			{#if photo}<img class="ph" src={photo.url} alt="" width={photo.w} height={photo.h} />{:else}<Doodle name="door" size={64} />{/if}
 		</div>
 		<div class="fieldset">
+			<!-- usuário invisível: ajuda o gerenciador de senhas do navegador a reconhecer o login -->
+			<input class="sr-only" type="text" name="username" autocomplete="username" value="pyle" tabindex="-1" aria-hidden="true" readonly />
 			<label class="label" for="pw">senha</label>
-			<input
-				id="pw"
-				class="field"
-				type="password"
-				autocomplete="current-password"
-				bind:value={password}
-				required
-			/>
+			<input id="pw" class="field" type="password" name="password" autocomplete="current-password" bind:value={password} required />
 			{#if error}<p class="err" role="alert">{error}</p>{/if}
 			<button class="btn primary" disabled={busy || !password}>{busy ? 'entrando…' : 'entrar'}</button>
 		</div>
@@ -64,13 +59,13 @@
 
 <style>
 	.login {
-		min-height: 100dvh;
+		height: 100dvh;
+		min-height: 560px;
 		display: grid;
-		grid-template-rows: auto 1fr auto;
+		grid-template-rows: auto minmax(0, 1fr) auto;
 	}
 	.top {
 		padding: 18px 0 14px;
-		border-bottom: var(--rule);
 	}
 	.top .label {
 		grid-column: 1 / span 6;
@@ -79,25 +74,37 @@
 		grid-column: 7 / span 6;
 		justify-self: end;
 	}
-	form {
-		align-content: center;
+	.mid {
+		min-height: 0;
+		align-items: stretch;
 	}
 	.door {
 		grid-column: 1 / span 6;
-		align-self: end;
+		min-height: 0;
+		height: 100%;
 	}
+	/* a foto ocupa toda a altura entre o topo e a palavra, inteira (sem corte) */
 	.ph {
 		display: block;
-		max-width: 100%;
-		max-height: 52vh;
+		height: 100%;
 		width: auto;
-		height: auto; /* inteira */
+		max-width: 100%;
+		object-fit: contain;
+		object-position: left center;
 	}
 	.fieldset {
-		grid-column: 7 / span 4;
+		grid-column: 8 / span 4;
+		align-self: center;
 		display: grid;
+		align-content: start;
 		gap: 16px;
 		justify-items: start;
+	}
+	.fieldset .field {
+		width: 100%;
+	}
+	.fieldset .btn {
+		padding: 10px 22px;
 	}
 	.err {
 		color: var(--accent);
@@ -105,16 +112,28 @@
 	}
 	.wordmark {
 		font-size: clamp(80px, 18vw, 240px);
-		padding-bottom: var(--gutter);
-		border-top: var(--rule);
-		padding-top: 12px;
+		padding: 10px 0 var(--gutter);
 	}
 	@media (max-width: 720px) {
-		.door {
-			grid-column: 1 / -1;
+		.login {
+			height: auto;
+			min-height: 100dvh;
+			grid-template-rows: auto auto auto;
 		}
+		.door,
 		.fieldset {
 			grid-column: 1 / -1;
+		}
+		.door {
+			height: auto;
+		}
+		.ph {
+			width: 100%;
+			height: auto;
+			max-height: 55vh;
+		}
+		.fieldset {
+			margin: 24px 0;
 		}
 	}
 </style>

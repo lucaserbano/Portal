@@ -1,5 +1,4 @@
 <script lang="ts">
-	import SectionPhoto from '#lib/components/SectionPhoto.svelte';
 	import { api } from '#lib/api.ts';
 	import { widgetScript } from '#lib/scriptable.ts';
 
@@ -37,8 +36,6 @@
 <section class="head">
 	<h1 class="title-xl">Ajustes</h1>
 </section>
-
-<div class="ajph"><SectionPhoto seed="ajustes" height={160} /></div>
 
 <div class="cols">
 	<section class="block">

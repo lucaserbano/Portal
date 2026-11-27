@@ -8,7 +8,6 @@
 
 {#if list.length}
 	<section class="mosaic" aria-label="Portais">
-		<header class="meta"><span>πύλη</span><span>portais · {list.length}</span></header>
 		<div class="grid12">
 			{#each list as p, i (p.url)}
 				<figure class={span(p)}>
@@ -21,14 +20,7 @@
 
 <style>
 	.mosaic {
-		margin-top: calc(var(--gutter) * 2.5);
-		border-top: 2px solid var(--black);
-		padding-top: 10px;
-	}
-	header {
-		display: flex;
-		justify-content: space-between;
-		margin-bottom: 14px;
+		margin-top: var(--gutter);
 	}
 	.grid12 {
 		display: grid;
