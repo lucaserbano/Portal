@@ -43,7 +43,7 @@
 				<span class="name">{b.name}</span>
 				<span class="meta counts">
 					<span>{b.lists} cards</span>
-					<span>{plural(b.open_tasks, 'aberta')}</span>
+					<span class="open">{plural(b.open_tasks, 'aberta')}</span>
 					<span class:late={b.late_tasks > 0}>{plural(b.late_tasks, 'atrasada')}</span>
 				</span>
 			</a>
@@ -110,6 +110,9 @@
 		display: flex;
 		gap: 16px;
 		flex-wrap: wrap;
+	}
+	.open {
+		font-weight: 700;
 	}
 	.late {
 		color: var(--accent);
