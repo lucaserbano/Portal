@@ -14,6 +14,7 @@
 	} from '#lib/model.ts';
 	import Checklist, { type CheckItem } from './Checklist.svelte';
 	import Destination from './Destination.svelte';
+	import type { ExTask } from '#lib/export.ts';
 
 	let { id, onclose, onchange }: { id: string; onclose: () => void; onchange: () => void } = $props();
 
@@ -259,6 +260,26 @@
 		await refreshSide();
 	}
 
+	// ---------- Compartilhar como PDF (WhatsApp etc.) ----------
+	let sharing = $state(false);
+	let pendingPdf = $state<File | null>(null);
+	async function sharePdf() {
+		sharing = true;
+		try {
+			const [{ task: ex }, x] = await Promise.all([api<{ task: ExTask }>(`/tasks/${current}/export`), import('#lib/export.ts')]);
+			const all = new Set(x.FIELDS.map((f) => f.key));
+			const blob = await x.toPDF(ex.title, `πύλη · ${ex.list ?? 'inbox'}`, [{ name: '', tasks: [ex] }], all);
+			const name = `${x.fileSlug(ex.title)}.pdf`;
+			const r = await x.deliver(blob, name, true);
+			if (r === 'gesture') pendingPdf = new File([blob], name, { type: 'application/pdf' });
+			if (r === 'downloaded') say('PDF baixado');
+		} catch (e) {
+			say((e as Error).message);
+		} finally {
+			sharing = false;
+		}
+	}
+
 	async function remove() {
 		if (!confirmDelete) {
 			confirmDelete = true;
@@ -350,8 +371,16 @@
 			<button class:on={action === 'copy'} onclick={() => (action = action === 'copy' ? null : 'copy')}>copiar</button>
 			<button onclick={duplicate}>duplicar</button>
 			<button class:on={action === 'mirror'} onclick={() => (action = action === 'mirror' ? null : 'mirror')}>espelhar</button>
+			<button onclick={sharePdf} disabled={sharing}>{sharing ? 'gerando PDF…' : 'compartilhar PDF'}</button>
 			<button class:on={action === 'template'} onclick={() => (action = action === 'template' ? null : 'template')}>salvar como modelo</button>
 		</nav>
+
+		{#if pendingPdf}
+			<div class="actionbox row">
+				<span class="label">PDF pronto.</span>
+				<button class="btn primary" onclick={() => { const f = pendingPdf!; pendingPdf = null; navigator.share({ files: [f], title: f.name }).catch(() => {}); }}>enviar PDF</button>
+			</div>
+		{/if}
 
 		{#if action === 'move' || action === 'copy' || action === 'mirror'}
 			<div class="actionbox">

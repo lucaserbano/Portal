@@ -8,6 +8,7 @@
 	import TaskCard from '#lib/components/TaskCard.svelte';
 	import TaskPanel from '#lib/components/TaskPanel.svelte';
 	import BoardChecklists from '#lib/components/BoardChecklists.svelte';
+	import ExportDialog from '#lib/components/ExportDialog.svelte';
 
 	type Item = Task & { id: string; task_id: string }; // id = placement_id (chave do arrastar)
 	type Column = List & { items: Item[] };
@@ -29,6 +30,7 @@
 	let labels = $state<Label[]>([]);
 	let people = $state<{ id: string; name: string }[]>([]);
 	// Faixa com todos os quadros, para trocar rápido
+	let showExport = $state(false);
 	let nameDraft = $state('');
 	$effect(() => {
 		nameDraft = board?.name ?? '';
@@ -247,6 +249,7 @@
 			<button class="link" onclick={() => (view = view === 'quadro' ? 'checklists' : 'quadro')} aria-pressed={view === 'checklists'}
 				>{view === 'quadro' ? 'checklists' : 'quadro'}</button
 			>
+			<button class="link" onclick={() => (showExport = true)}>exportar</button>
 			<button class="link" onclick={toggleCompact} aria-pressed={compact}>{compact ? 'zoom +' : 'zoom −'}</button>
 			<button class="link" onclick={() => (showSettings = !showSettings)} aria-expanded={showSettings}>exibir</button>
 		</div>
@@ -373,6 +376,10 @@
 	{/if}
 {:else}
 	<p class="meta">carregando…</p>
+{/if}
+
+{#if showExport}
+	<ExportDialog boardId={bid} onclose={() => (showExport = false)} onimported={load} />
 {/if}
 
 {#if openTask}

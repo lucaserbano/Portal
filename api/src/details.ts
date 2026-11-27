@@ -429,3 +429,104 @@ details.delete('/templates/:id', async (c) => {
   await c.env.DB.prepare('DELETE FROM templates WHERE id = ?').bind(c.req.param('id')).run();
   return c.json({ ok: true });
 });
+
+// ---------- Exportação (fase 4) ----------
+async function exportTasks(env: Env, tasks: Row[]) {
+  if (!tasks.length) return [];
+  const ids = tasks.map((t) => t.id);
+  const ph = ids.map(() => '?').join(',');
+  const [labels, people, items, atts] = await Promise.all([
+    env.DB.prepare(`SELECT tl.task_id, l.name, l.color FROM task_labels tl JOIN labels l ON l.id = tl.label_id WHERE tl.task_id IN (${ph})`).bind(...ids).all<Row>(),
+    env.DB.prepare(`SELECT tp.task_id, tp.role, p.name FROM task_people tp JOIN people p ON p.id = tp.person_id WHERE tp.task_id IN (${ph})`).bind(...ids).all<Row>(),
+    env.DB.prepare(
+      `SELECT ci.task_id, ci.text, ci.weight, ci.done, p.name AS person FROM checklist_items ci LEFT JOIN people p ON p.id = ci.person_id
+       WHERE ci.task_id IN (${ph}) ORDER BY ci.position`,
+    ).bind(...ids).all<Row>(),
+    env.DB.prepare(`SELECT task_id, kind, name, url FROM attachments WHERE task_id IN (${ph}) ORDER BY created_at`).bind(...ids).all<Row>(),
+  ]);
+  return tasks.map((t) => {
+    const checklist = items.results.filter((i) => i.task_id === t.id);
+    return {
+      id: t.id,
+      title: t.title,
+      list: t.list_name ?? null,
+      description_md: t.description_md,
+      priority: t.priority,
+      start_at: t.start_at,
+      due_at: t.due_at,
+      done_at: t.done_at,
+      created_at: t.created_at,
+      labels: labels.results.filter((l) => l.task_id === t.id).map((l) => l.name),
+      members: people.results.filter((p) => p.task_id === t.id && p.role === 'member').map((p) => p.name),
+      checklist: checklist.map(({ task_id, ...rest }) => rest),
+      progress: progress(checklist as any),
+      attachments: atts.results.filter((a) => a.task_id === t.id).map(({ task_id, ...rest }) => rest),
+    };
+  });
+}
+
+details.get('/boards/:id/export', async (c) => {
+  const bid = c.req.param('id');
+  const board = await c.env.DB.prepare('SELECT id, name FROM boards WHERE id = ?').bind(bid).first<Row>();
+  if (!board) return c.json({ error: 'Quadro não encontrado.' }, 404);
+  const lists = (await c.env.DB.prepare('SELECT id, name, is_final FROM lists WHERE board_id = ? ORDER BY position').bind(bid).all()).results;
+  const tasks = (
+    await c.env.DB.prepare(
+      `SELECT t.*, l.name AS list_name FROM task_placements p JOIN tasks t ON t.id = p.task_id
+       LEFT JOIN lists l ON l.id = p.list_id WHERE p.board_id = ? ORDER BY l.position, p.position`,
+    ).bind(bid).all<Row>()
+  ).results;
+  return c.json({ board, lists, tasks: await exportTasks(c.env, tasks) });
+});
+
+details.get('/tasks/:id/export', async (c) => {
+  const t = await c.env.DB.prepare(
+    `SELECT t.*, (SELECT b.name || ' › ' || COALESCE(l.name, '') FROM task_placements p JOIN boards b ON b.id = p.board_id
+       LEFT JOIN lists l ON l.id = p.list_id WHERE p.task_id = t.id LIMIT 1) AS list_name
+     FROM tasks t WHERE t.id = ?`,
+  ).bind(c.req.param('id')).first<Row>();
+  if (!t) return c.json({ error: 'Tarefa não encontrada.' }, 404);
+  return c.json({ task: (await exportTasks(c.env, [t]))[0] });
+});
+
+// ---------- Importação de .md ----------
+type ImportTask = { title: string; description_md?: string; done?: boolean; checklist?: { text: string; done?: boolean; weight?: number | null }[] };
+details.post('/boards/:id/import', async (c) => {
+  const bid = c.req.param('id');
+  const body = await c.req.json<{ lists: { name: string; tasks: ImportTask[] }[] }>();
+  if (!Array.isArray(body.lists)) return c.json({ error: 'Formato inválido.' }, 400);
+  const existing = (await c.env.DB.prepare('SELECT id, name, position, is_final FROM lists WHERE board_id = ? ORDER BY position').bind(bid).all<Row>()).results;
+  const finalPos = existing.find((l) => l.is_final)?.position;
+  let maxPos = existing.filter((l) => !l.is_final).reduce((m, l) => Math.max(m, l.position), 0);
+  let created = 0;
+  for (const l of body.lists) {
+    let list = existing.find((x) => x.name.trim().toLowerCase() === String(l.name).trim().toLowerCase());
+    if (!list) {
+      const pos = finalPos != null && maxPos < finalPos ? (maxPos + finalPos) / 2 : maxPos + 1;
+      maxPos = pos;
+      list = { id: newId('l'), name: l.name, position: pos, is_final: 0 };
+      await c.env.DB.prepare('INSERT INTO lists (id, board_id, name, position, created_at) VALUES (?, ?, ?, ?, ?)').bind(list.id, bid, l.name.trim(), pos, now()).run();
+      existing.push(list);
+    }
+    const max = await c.env.DB.prepare('SELECT COALESCE(MAX(position), 0) AS p FROM task_placements WHERE list_id = ?').bind(list.id).first<{ p: number }>();
+    let pos = max?.p ?? 0;
+    for (const t of l.tasks ?? []) {
+      if (!t.title?.trim()) continue;
+      const tid = newId('t');
+      const stmts: D1PreparedStatement[] = [
+        c.env.DB.prepare('INSERT INTO tasks (id, title, description_md, done_at, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)').bind(
+          tid, t.title.trim().slice(0, 500), (t.description_md ?? '').slice(0, 100000), t.done ? now() : null, now(), now(),
+        ),
+        c.env.DB.prepare('INSERT INTO task_placements (id, task_id, board_id, list_id, position) VALUES (?, ?, ?, ?, ?)').bind(newId('p'), tid, bid, list.id, ++pos),
+        ...(t.checklist ?? []).map((ci, i) =>
+          c.env.DB.prepare('INSERT INTO checklist_items (id, task_id, text, weight, done, position, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)').bind(
+            newId('c'), tid, String(ci.text).slice(0, 1000), ci.weight ?? null, ci.done ? 1 : 0, i + 1, now(),
+          ),
+        ),
+      ];
+      await c.env.DB.batch(stmts);
+      created++;
+    }
+  }
+  return c.json({ ok: true, created });
+});
