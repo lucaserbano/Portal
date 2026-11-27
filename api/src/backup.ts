@@ -23,7 +23,7 @@ function taskMd(t: Row) {
   if (t.description_md) md += `\n${t.description_md}\n`;
   const items = CHECK.filter((c) => c.task_id === t.id);
   if (items.length) {
-    md += '\n' + items.map((c) => `- [${c.done ? 'x' : ' '}] ${c.text}${c.weight != null ? ` (${c.weight}%)` : ''}`).join('\n') + '\n';
+    md += '\n' + items.map((c) => `- [${c.done ? 'x' : ' '}] ${c.text}${c.weight === 2 || c.weight === 3 ? ` (×${c.weight})` : ''}`).join('\n') + '\n';
   }
   return md + '\n';
 }

@@ -54,17 +54,47 @@ export const PRIORITY_LABEL: Record<Exclude<Priority, null>, string> = {
 	critico: 'Crítico'
 };
 
-// Cores de fundo do cartão: tons claros que não competem com o magenta
+// Cores de fundo do cartão: tons claros que não competem com o magenta.
+// No modo noturno cada uma tem um tom escuro próprio (o texto fica branco).
 export const CARD_COLORS = [
-	{ value: null, name: 'branco' },
-	{ value: '#f0f0f0', name: 'cinza' },
-	{ value: '#ffe3ef', name: 'rosa' },
-	{ value: '#fff4c2', name: 'amarelo' },
-	{ value: '#e2ecff', name: 'azul' },
-	{ value: '#e3f4e1', name: 'verde' }
+	{ value: null, name: 'branco', dark: null },
+	{ value: '#f0f0f0', name: 'cinza', dark: '#262626' },
+	{ value: '#ffe3ef', name: 'rosa', dark: '#4d0f2b' },
+	{ value: '#fff4c2', name: 'amarelo', dark: '#3d3200' },
+	{ value: '#e2ecff', name: 'azul', dark: '#10264d' },
+	{ value: '#e3f4e1', name: 'verde', dark: '#123a1c' }
 ] as const;
 
-export const LABEL_COLORS = ['#ff006f', '#000000', '#808080', '#e0a800', '#2b6cff', '#1f9d55'];
+/** Variáveis CSS do fundo do cartão (claro e escuro) */
+export function cardVars(value: string | null) {
+	if (!value) return undefined;
+	const c = CARD_COLORS.find((x) => x.value === value);
+	return `--card-l: ${value}; --card-d: ${c?.dark ?? `color-mix(in srgb, ${value} 30%, #000)`}`;
+}
+
+// Cores dos labels: tons médios, legíveis no fundo branco e no preto
+export const LABEL_COLORS = [
+	'#ff006f', // magenta
+	'#ff8fb8', // rosa
+	'#e53935', // vermelho
+	'#ff7a00', // laranja
+	'#e0a800', // amarelo
+	'#1f9d55', // verde
+	'#00a3a3', // turquesa
+	'#2b6cff', // azul
+	'#7c5cff', // roxo
+	'#a8703a', // marrom
+	'#808080', // cinza
+	'#000000' // preto (vira branco no modo noturno)
+];
+
+/** Variáveis CSS do label: --c (cor) e --ink (texto sobre a cor) */
+export function labelVars(hex: string) {
+	if (/^#0{6}$/i.test(hex)) return '--c: var(--black); --ink: var(--white)';
+	const n = parseInt(hex.slice(1), 16);
+	const lum = (0.299 * ((n >> 16) & 255) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255)) / 255;
+	return `--c: ${hex}; --ink: ${lum > 0.6 ? '#000' : '#fff'}`;
+}
 
 export const nowS = () => Math.floor(Date.now() / 1000);
 

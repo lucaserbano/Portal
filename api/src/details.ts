@@ -9,16 +9,14 @@ const origin = (url: string) => new URL(url).origin;
 
 type Row = Record<string, any>;
 
-// ---------- Progresso ponderado do checklist ----------
-// Itens com peso contam o peso; os sem peso dividem igualmente o que sobrar até 100%.
+// ---------- Progresso do checklist ----------
+// Cada item vale 1; itens marcados como mais trabalhosos valem 2 ou 3 (peso ×2, ×3).
+export const itemWeight = (w: number | null) => (w === 2 || w === 3 ? w : 1);
+export const cleanWeight = (w: unknown) => (w === 2 || w === 3 ? w : null);
 export function progress(items: { weight: number | null; done: number }[]) {
   if (!items.length) return null;
-  const weighted = items.filter((i) => i.weight != null);
-  const fixed = weighted.reduce((s, i) => s + (i.weight as number), 0);
-  const free = items.length - weighted.length;
-  const share = free ? Math.max(0, 100 - fixed) / free : 0;
-  const total = fixed + share * free;
-  const done = items.reduce((s, i) => s + (i.done ? (i.weight ?? share) : 0), 0);
+  const total = items.reduce((s, i) => s + itemWeight(i.weight), 0);
+  const done = items.reduce((s, i) => s + (i.done ? itemWeight(i.weight) : 0), 0);
   return {
     done: items.filter((i) => i.done).length,
     total: items.length,
@@ -139,7 +137,7 @@ export async function taskFromTemplate(env: Env, templateId: string, title?: str
     ...(d.checklist ?? []).map((c: Row, i: number) =>
       env.DB.prepare(
         'INSERT INTO checklist_items (id, task_id, text, weight, done, person_id, position, created_at) VALUES (?, ?, ?, ?, 0, NULL, ?, ?)',
-      ).bind(newId('c'), tid, c.text, c.weight ?? null, i + 1, now()),
+      ).bind(newId('c'), tid, c.text, cleanWeight(c.weight), i + 1, now()),
     ),
   ];
   await env.DB.batch(stmts);
@@ -243,7 +241,7 @@ details.post('/tasks/:id/checklist', async (c) => {
   const max = await c.env.DB.prepare('SELECT COALESCE(MAX(position), 0) AS p FROM checklist_items WHERE task_id = ?').bind(tid).first<{ p: number }>();
   const cid = newId('c');
   await c.env.DB.prepare('INSERT INTO checklist_items (id, task_id, text, weight, position, created_at) VALUES (?, ?, ?, ?, ?, ?)')
-    .bind(cid, tid, b.text.trim(), b.weight ?? null, (max?.p ?? 0) + 1, now())
+    .bind(cid, tid, b.text.trim(), cleanWeight(b.weight), (max?.p ?? 0) + 1, now())
     .run();
   return c.json({ id: cid });
 });
@@ -255,7 +253,7 @@ details.patch('/checklist/:id', async (c) => {
   for (const f of ['text', 'weight', 'done', 'person_id', 'position']) {
     if (b[f] === undefined) continue;
     sets.push(`${f} = ?`);
-    vals.push(f === 'done' ? (b[f] ? 1 : 0) : b[f]);
+    vals.push(f === 'done' ? (b[f] ? 1 : 0) : f === 'weight' ? cleanWeight(b[f]) : b[f]);
   }
   if (sets.length) await c.env.DB.prepare(`UPDATE checklist_items SET ${sets.join(', ')} WHERE id = ?`).bind(...vals, c.req.param('id')).run();
   return c.json({ ok: true });
@@ -520,7 +518,7 @@ details.post('/boards/:id/import', async (c) => {
         c.env.DB.prepare('INSERT INTO task_placements (id, task_id, board_id, list_id, position) VALUES (?, ?, ?, ?, ?)').bind(newId('p'), tid, bid, list.id, ++pos),
         ...(t.checklist ?? []).map((ci, i) =>
           c.env.DB.prepare('INSERT INTO checklist_items (id, task_id, text, weight, done, position, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)').bind(
-            newId('c'), tid, String(ci.text).slice(0, 1000), ci.weight ?? null, ci.done ? 1 : 0, i + 1, now(),
+            newId('c'), tid, String(ci.text).slice(0, 1000), cleanWeight(ci.weight), ci.done ? 1 : 0, i + 1, now(),
           ),
         ),
       ];

@@ -1,3 +1,8 @@
+<script lang="ts" module>
+	// Quadros já abertos ficam na memória: trocar de quadro mostra na hora e atualiza por trás
+	const cache = new Map<string, any>();
+</script>
+
 <script lang="ts">
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
@@ -36,7 +41,14 @@
 		nameDraft = board?.name ?? '';
 	});
 	let allBoards = $state<{ id: string; name: string }[]>([]);
-	api<{ boards: { id: string; name: string }[] }>('/destinations').then((d) => (allBoards = d.boards));
+	api<{ boards: { id: string; name: string }[] }>('/destinations').then((d) => {
+		allBoards = d.boards;
+		// pré-carrega os outros quadros quando o navegador estiver livre
+		const idle = (window as any).requestIdleCallback ?? ((f: () => void) => setTimeout(f, 600));
+		idle(() => {
+			for (const b of d.boards) if (!cache.has(b.id)) api(`/boards/${b.id}`).then((x) => cache.set(b.id, x)).catch(() => {});
+		});
+	});
 	let templates = $state<{ id: string; name: string }[]>([]);
 	let templateId = $state('');
 	let view = $state<'quadro' | 'checklists'>('quadro');
@@ -74,21 +86,31 @@
 
 	const bid = $derived(page.params.id!);
 
+	type BoardData = {
+		board: { id: string; name: string; card_fields: CardFields };
+		lists: List[];
+		tasks: Task[];
+		labels: Label[];
+		people: { id: string; name: string }[];
+	};
+
+	function apply(d: BoardData) {
+		people = d.people;
+		board = d.board;
+		labels = d.labels;
+		const items = d.tasks.map((t) => ({ ...t, id: t.placement_id!, task_id: t.id }));
+		columns = d.lists.map((l) => ({ ...l, items: items.filter((t) => t.list_id === l.id) }));
+		loose = items.filter((t) => !t.list_id);
+	}
+
 	async function load() {
+		const id = bid;
+		const cached = cache.get(id);
+		if (cached) apply(structuredClone(cached));
 		try {
-			const d = await api<{
-				board: { id: string; name: string; card_fields: CardFields };
-				lists: List[];
-				tasks: Task[];
-				labels: Label[];
-				people: { id: string; name: string }[];
-			}>(`/boards/${bid}`);
-			people = d.people;
-			board = d.board;
-			labels = d.labels;
-			const items = d.tasks.map((t) => ({ ...t, id: t.placement_id!, task_id: t.id }));
-			columns = d.lists.map((l) => ({ ...l, items: items.filter((t) => t.list_id === l.id) }));
-			loose = items.filter((t) => !t.list_id);
+			const d = await api<BoardData>(`/boards/${id}`);
+			cache.set(id, d);
+			if (id === bid) apply(structuredClone(d));
 		} catch (e) {
 			error = (e as Error).message;
 		}

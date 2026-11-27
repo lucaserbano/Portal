@@ -3,6 +3,7 @@
 	import {
 		CARD_COLORS,
 		LABEL_COLORS,
+		labelVars,
 		PRIORITY_LABEL,
 		fmtLong,
 		fromInput,
@@ -341,7 +342,7 @@
 				inbox
 			{/if}
 		</span>
-		<button class="x" onclick={onclose} aria-label="Fechar">fechar</button>
+		<button class="btn close" onclick={onclose}>fechar</button>
 	</header>
 
 	{#if error}<p class="err">{error}</p>{/if}
@@ -355,7 +356,17 @@
 		{/if}
 
 		<div class="titlerow">
-			<button class="btn" class:primary={!task.done_at} onclick={toggleDone}>{task.done_at ? 'reabrir' : 'concluir'}</button>
+			<button
+				class="done-btn"
+				class:on={!!task.done_at}
+				onclick={toggleDone}
+				aria-label={task.done_at ? 'Reabrir tarefa' : 'Concluir tarefa'}
+				title={task.done_at ? 'Reabrir' : 'Concluir'}
+			>
+				<span class="ring">
+					<svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 8.5 L6.5 12 L13 4.5" /></svg>
+				</span>
+			</button>
 			<textarea
 				class="title"
 				rows="1"
@@ -364,15 +375,18 @@
 				onkeydown={(e) => e.key === 'Enter' && (e.preventDefault(), e.currentTarget.blur())}
 			></textarea>
 		</div>
-		{#if task.done_at}<p class="meta">concluída em {fmtLong(task.done_at)}</p>{/if}
+		<p class="meta state">
+			{#if task.done_at}concluída em {fmtLong(task.done_at)} · <button class="link small" onclick={toggleDone}>reabrir</button>
+			{:else}círculo = concluir · tudo salva sozinho{/if}
+		</p>
 
 		<nav class="actions" aria-label="Ações da tarefa">
-			{#if placements.length}<button class:on={action === 'move'} onclick={() => (action = action === 'move' ? null : 'move')}>mover</button>{/if}
-			<button class:on={action === 'copy'} onclick={() => (action = action === 'copy' ? null : 'copy')}>copiar</button>
-			<button onclick={duplicate}>duplicar</button>
-			<button class:on={action === 'mirror'} onclick={() => (action = action === 'mirror' ? null : 'mirror')}>espelhar</button>
-			<button onclick={sharePdf} disabled={sharing}>{sharing ? 'gerando PDF…' : 'compartilhar PDF'}</button>
-			<button class:on={action === 'template'} onclick={() => (action = action === 'template' ? null : 'template')}>salvar como modelo</button>
+			<button class:on={action === 'move'} disabled={!placements.length} onclick={() => (action = action === 'move' ? null : 'move')}><span>→</span>mover</button>
+			<button class:on={action === 'copy'} onclick={() => (action = action === 'copy' ? null : 'copy')}><span>+</span>copiar</button>
+			<button onclick={duplicate}><span>⧉</span>duplicar</button>
+			<button class:on={action === 'mirror'} onclick={() => (action = action === 'mirror' ? null : 'mirror')}><span>⇄</span>espelhar</button>
+			<button onclick={sharePdf} disabled={sharing}><span>↗</span>{sharing ? 'gerando…' : 'PDF'}</button>
+			<button class:on={action === 'template'} onclick={() => (action = action === 'template' ? null : 'template')}><span>▤</span>modelo</button>
 		</nav>
 
 		{#if pendingPdf}
@@ -449,7 +463,7 @@
 					<button
 						class="sw"
 						class:on={task.color === c.value}
-						style:background={c.value ?? 'var(--white)'}
+						style={c.value ? `--sw-l: ${c.value}; --sw-d: ${c.dark}` : undefined}
 						onclick={() => save({ color: c.value })}
 						aria-label={c.name}
 						title={c.name}
@@ -461,16 +475,22 @@
 			<dd>
 				<div class="chips">
 					{#each labels as l (l.id)}
-						<button class="chip" class:on={task.labels.includes(l.id)} style:--c={l.color} onclick={() => toggleLabel(l.id)}>{l.name}</button>
+						<button class="chip" class:on={task.labels.includes(l.id)} style={labelVars(l.color)} onclick={() => toggleLabel(l.id)}>{l.name}</button>
 					{/each}
 				</div>
-				<form class="inline" onsubmit={createLabel}>
-					<input class="field" placeholder="+ label" bind:value={newLabel} />
-					{#each LABEL_COLORS as c (c)}
-						<button type="button" class="dot" class:on={newLabelColor === c} style:background={c} onclick={() => (newLabelColor = c)} aria-label="cor {c}"
-						></button>
-					{/each}
-					{#if newLabel.trim()}<button class="btn">criar</button>{/if}
+				<form class="newlabel" onsubmit={createLabel}>
+					<div class="inline">
+						<input class="field" placeholder="+ label" bind:value={newLabel} />
+						{#if newLabel.trim()}<button class="btn">criar</button>{/if}
+					</div>
+					{#if newLabel.trim()}
+						<div class="dots" role="radiogroup" aria-label="Cor do label">
+							{#each LABEL_COLORS as c (c)}
+								<button type="button" class="dot" class:on={newLabelColor === c} style={labelVars(c)} onclick={() => (newLabelColor = c)} aria-label="cor {c}"
+								></button>
+							{/each}
+						</div>
+					{/if}
 				</form>
 			</dd>
 		</dl>
@@ -655,11 +675,60 @@
 		object-fit: cover;
 		border: var(--rule);
 	}
+	.btn.close {
+		background: var(--black);
+		border-color: var(--black);
+		color: var(--white);
+		padding: 8px 18px;
+		flex: none;
+	}
+	.btn.close:hover {
+		background: var(--accent);
+		border-color: var(--accent);
+	}
 	.titlerow {
 		display: grid;
 		grid-template-columns: auto 1fr;
-		gap: 14px;
+		gap: 12px;
 		align-items: start;
+	}
+	/* o botão tem a altura de uma linha do título: o círculo fica no meio da 1ª linha */
+	.done-btn {
+		font-size: var(--t-lg);
+		height: 1.15em;
+		display: grid;
+		place-items: center;
+		background: none;
+		border: 0;
+		padding: 0;
+		cursor: pointer;
+		color: var(--grey);
+	}
+	.ring {
+		width: 22px;
+		height: 22px;
+		border: 1.5px solid var(--grey);
+		border-radius: 50%;
+		display: grid;
+		place-items: center;
+		color: transparent;
+		transition: color 0.15s, background 0.15s, border-color 0.15s;
+	}
+	.done-btn:hover .ring {
+		border-color: var(--black);
+		color: var(--grey);
+	}
+	.done-btn.on .ring {
+		background: var(--black);
+		border-color: var(--black);
+		color: var(--white);
+	}
+	.state {
+		margin-top: -10px;
+		padding-left: 34px;
+	}
+	.link.small {
+		font: inherit;
 	}
 	.title {
 		font-size: var(--t-lg);
@@ -675,26 +744,50 @@
 	.title:focus {
 		box-shadow: 0 2px 0 var(--accent);
 	}
+	/* ações em grade de filetes: 6 colunas no computador, 3 no celular */
 	.actions {
-		display: flex;
-		flex-wrap: wrap;
-		gap: 4px 16px;
+		display: grid;
+		grid-template-columns: repeat(6, 1fr);
+		border-top: var(--rule);
+		border-left: var(--rule);
 		font-size: var(--t-sm);
 	}
 	.actions button {
-		background: none;
+		display: grid;
+		justify-items: center;
+		gap: 2px;
+		padding: 10px 4px 9px;
+		background: var(--white);
 		border: 0;
-		padding: 0;
+		border-right: var(--rule);
+		border-bottom: var(--rule);
 		cursor: pointer;
+		color: var(--black);
+	}
+	.actions button span {
+		font-size: 16px;
+		line-height: 1;
 		color: var(--grey);
 	}
-	.actions button:hover,
 	.actions button.on {
-		color: var(--black);
-		text-decoration: underline;
-		text-decoration-color: var(--accent);
-		text-decoration-thickness: 2px;
-		text-underline-offset: 4px;
+		background: var(--black);
+		color: var(--white);
+	}
+	.actions button.on span {
+		color: var(--white);
+	}
+	@media (hover: hover) {
+		.actions button:hover:not(:disabled) {
+			background: var(--black);
+			color: var(--white);
+		}
+		.actions button:hover:not(:disabled) span {
+			color: var(--white);
+		}
+	}
+	.actions button:disabled {
+		color: var(--inactive);
+		cursor: default;
 	}
 	.actionbox {
 		border: var(--rule);
@@ -779,6 +872,10 @@
 		border: 1px solid var(--grey);
 		cursor: pointer;
 		padding: 0;
+		background: var(--sw-l, var(--white));
+	}
+	:global([data-theme='dark']) .sw {
+		background: var(--sw-d, var(--white));
 	}
 	.sw.on {
 		outline: 2px solid var(--black);
@@ -800,7 +897,16 @@
 	}
 	.chip.on {
 		background: var(--c, var(--black));
-		color: var(--white);
+		color: var(--ink, var(--white));
+	}
+	.newlabel {
+		display: grid;
+		gap: 8px;
+	}
+	.dots {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 8px;
 	}
 	.inline {
 		display: flex;
@@ -816,8 +922,9 @@
 		padding: 5px 10px;
 	}
 	.dot {
-		width: 14px;
-		height: 14px;
+		background: var(--c);
+		width: 22px;
+		height: 22px;
 		border: 0;
 		padding: 0;
 		cursor: pointer;
@@ -927,6 +1034,9 @@
 		}
 		dt {
 			padding-top: 10px;
+		}
+		.actions {
+			grid-template-columns: repeat(3, 1fr);
 		}
 	}
 </style>

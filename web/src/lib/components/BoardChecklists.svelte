@@ -71,7 +71,7 @@
 				<article class="task">
 					<header>
 						<button class="tt" class:done={t.done} onclick={() => onopen(t.id)}>{t.title}</button>
-						<span class="meta" class:full={p === 100}>{p}%</span>
+						<span class="meta" class:full={p === 100}>{t.items.filter((i) => i.done).length}/{t.items.length}</span>
 					</header>
 					<div class="track"><span style:width="{p}%"></span></div>
 					<ul>
@@ -81,7 +81,7 @@
 									<input type="checkbox" checked={!!r.done} onchange={() => toggle(r)} />
 									<span>{r.text}</span>
 								</label>
-								<span class="meta">{who(r.person_id) ?? ''}{r.weight != null ? ` ${r.weight}%` : ''}</span>
+								<span class="meta">{who(r.person_id) ?? ''}{r.weight === 2 || r.weight === 3 ? ` ×${r.weight}` : ''}</span>
 							</li>
 						{/each}
 					</ul>

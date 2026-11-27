@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { PRIORITY_LABEL, fmtShort, isLate, type CardFields, type Label, type Task } from '#lib/model.ts';
+	import { PRIORITY_LABEL, cardVars, fmtShort, isLate, labelVars, type CardFields, type Label, type Task } from '#lib/model.ts';
 
 	let {
 		task,
@@ -24,7 +24,7 @@
 	const excerpt = $derived(task.description_md.replace(/\[([^\]]+)\]\((?:person|task):[^)]+\)/g, '$1').replace(/<\/?(u|mark)[^>]*>/g, '').replace(/[#*_>`=\-\[\]]/g, '').trim().slice(0, 90));
 </script>
 
-<article class="card" class:done={!!task.done_at} class:hascover={fields.cover && !!task.cover_url} style:--card={task.color ?? undefined}>
+<article class="card" class:done={!!task.done_at} class:hascover={fields.cover && !!task.cover_url} style={cardVars(task.color)}>
 	{#if fields.cover && task.cover_url}<img class="cover" src={task.cover_url} alt="" loading="lazy" draggable="false" />{/if}
 	<button
 		class="check"
@@ -41,7 +41,7 @@
 	<button class="body" onclick={onopen}>
 		{#if fields.labels && taskLabels.length}
 			<span class="labels">
-				{#each taskLabels as l (l.id)}<span class="lb" style:--c={l.color}>{l.name}</span>{/each}
+				{#each taskLabels as l (l.id)}<span class="lb" style={labelVars(l.color)}>{l.name}</span>{/each}
 			</span>
 		{/if}
 
@@ -52,7 +52,7 @@
 		{#if fields.checklist && task.progress}
 			<span class="prog" title="{task.progress.done} de {task.progress.total} itens">
 				<span class="track"><span style:width="{task.progress.pct}%"></span></span>
-				<span class="meta" class:full={task.progress.pct === 100}>{task.progress.pct}%</span>
+				<span class="meta" class:full={task.progress.pct === 100}>{task.progress.done}/{task.progress.total}</span>
 			</span>
 		{/if}
 
@@ -76,7 +76,7 @@
 
 <style>
 	.card {
-		background: var(--card, var(--white)) !important;
+		background: var(--card-l, var(--white)) !important;
 		display: grid;
 		grid-template-columns: auto 1fr;
 		gap: 10px;
@@ -86,7 +86,7 @@
 		background: var(--white);
 	}
 	:global([data-theme='dark']) .card {
-		background: color-mix(in srgb, var(--card, #000) 22%, #000) !important;
+		background: var(--card-d, var(--white)) !important;
 	}
 	.cover {
 		grid-column: 1 / -1;

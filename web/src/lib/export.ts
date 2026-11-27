@@ -52,7 +52,7 @@ export function plain(md: string) {
 
 const prio = (p: ExTask['priority']) => (p ? PRIORITY_LABEL[p] : '');
 const checkLine = (c: ExTask['checklist'][number]) =>
-	`${c.text}${c.weight != null ? ` (${c.weight}%)` : ''}${c.person ? ` — ${c.person}` : ''}`;
+	`${c.text}${c.weight === 2 || c.weight === 3 ? ` (×${c.weight})` : ''}${c.person ? ` — ${c.person}` : ''}`;
 
 /** Linhas de metadados na ordem escolhida */
 function meta(t: ExTask, f: Set<FieldKey>) {
@@ -315,7 +315,7 @@ export function parseMarkdown(md: string) {
 				ensureList().tasks.push((task = { title: m[2].trim(), description_md: '', done: m[1]?.toLowerCase() === 'x', checklist: [] }));
 				continue;
 			}
-			if ((m = line.match(/^ {0,1}[-*] +\[( |x|X)\] +(.+?)(?: \((\d+(?:\.\d+)?)%\))?(?: — .+)?$/)) && task) {
+			if ((m = line.match(/^ {0,1}[-*] +\[( |x|X)\] +(.+?)(?: \(×([23])\))?(?: — .+)?$/)) && task) {
 				task.checklist.push({ text: m[2].trim(), done: m[1].toLowerCase() === 'x', weight: m[3] ? Number(m[3]) : null });
 				continue;
 			}
