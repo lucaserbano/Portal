@@ -374,7 +374,7 @@ social.post('/themes/:id/task', async (c) => {
   if (!th) return c.json({ error: 'Tema não encontrado.' }, 404);
   const md = [`**Cliente:** ${th.client}`, `**Formato:** ${FORMAT_NAME[th.format] ?? th.format}`, th.pillar && `**Pilar:** ${th.pillar}`, th.notes && `\n${th.notes}`]
     .filter(Boolean)
-    .join('\n\n');
+    .join('\n\n') + `\n\nAbrir o cliente: ${c.env.SITE_URL}/clientes/${th.client_id}`;
   const tid = await makeTask(c.env, `${th.client} — ${th.title}`, md, await c.req.json<Row>().catch(() => ({})));
   await c.env.DB.prepare('UPDATE themes SET task_id = ?, updated_at = ? WHERE id = ?').bind(tid, now(), th.id).run();
   return c.json({ id: tid });
@@ -385,8 +385,10 @@ social.post('/scripts/:id/task', async (c) => {
     .bind(c.req.param('id'))
     .first<Row>();
   if (!s) return c.json({ error: 'Roteiro não encontrado.' }, 404);
-  const md = `**Cliente:** ${s.client} · **Formato:** ${FORMAT_NAME[s.format] ?? s.format}\n\n${s.body_md}`;
-  const tid = await makeTask(c.env, `${s.client} — ${s.title}`, md, await c.req.json<Row>().catch(() => ({})));
+  // Só um lembrete: o texto do roteiro fica no roteiro (a tarefa leva o link para abri-lo)
+  const link = `${c.env.SITE_URL}/clientes/${s.client_id}?roteiro=${s.id}`;
+  const md = `**Lembrete do roteiro** · ${s.client} · ${FORMAT_NAME[s.format] ?? s.format}\n\nO roteiro fica na aba Roteiros do cliente. Abrir: ${link}`;
+  const tid = await makeTask(c.env, `Roteiro: ${s.title} (${s.client})`, md, await c.req.json<Row>().catch(() => ({})));
   await c.env.DB.prepare('UPDATE scripts SET task_id = ?, updated_at = ? WHERE id = ?').bind(tid, now(), s.id).run();
   return c.json({ id: tid });
 });

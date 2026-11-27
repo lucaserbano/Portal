@@ -3,7 +3,8 @@
 	import { widgetScript } from '#lib/scriptable.ts';
 
 	const API = import.meta.env.VITE_API_URL as string;
-	const SITE = location.origin + (import.meta.env.BASE_URL ?? '/');
+	// endereço do portal (o BASE_URL pode ser relativo, "./"; juntar direto com a origem gerava "github.io./")
+	const SITE = new URL(import.meta.env.BASE_URL || '/', location.href).href;
 	let active = $state<boolean | null>(null);
 	let script = $state('');
 	let copied = $state('');

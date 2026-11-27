@@ -277,7 +277,12 @@ boards.delete('/tasks/:id', async (c) => {
   const tid = c.req.param('id');
   const keys = (await c.env.DB.prepare("SELECT r2_key FROM attachments WHERE task_id = ? AND kind = 'file'").bind(tid).all<{ r2_key: string }>()).results;
   if (keys.length) await c.env.FILES.delete(keys.map((k) => k.r2_key));
-  await c.env.DB.prepare('DELETE FROM tasks WHERE id = ?').bind(tid).run();
+  await c.env.DB.batch([
+    c.env.DB.prepare('DELETE FROM tasks WHERE id = ?').bind(tid),
+    // o tema/roteiro volta a mostrar "lembrete" em vez de "ver tarefa"
+    c.env.DB.prepare('UPDATE scripts SET task_id = NULL WHERE task_id = ?').bind(tid),
+    c.env.DB.prepare('UPDATE themes SET task_id = NULL WHERE task_id = ?').bind(tid),
+  ]);
   return c.json({ ok: true });
 });
 

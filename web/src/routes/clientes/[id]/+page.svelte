@@ -20,8 +20,8 @@
 	let scripts = $state<Script[]>([]);
 	let templates = $state<Tpl[]>([]);
 	let error = $state('');
-	let tab = $state<'temas' | 'roteiros' | 'perfil'>(page.url.searchParams.get('novo') ? 'perfil' : 'temas');
-	let openScript = $state<string | null>(null);
+	let tab = $state<'temas' | 'roteiros' | 'perfil'>(page.url.searchParams.get('novo') ? 'perfil' : page.url.searchParams.get('roteiro') ? 'roteiros' : 'temas');
+	let openScript = $state<string | null>(page.url.searchParams.get('roteiro')); // link do lembrete abre o roteiro
 	let openTask = $state<string | null>(null);
 	let flash = $state('');
 

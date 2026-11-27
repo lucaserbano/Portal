@@ -93,6 +93,9 @@
 	] as const;
 	let events = $state<Record<string, number>>({});
 	let stepBusy = $state('');
+	// o que está escolhido no campo e ainda não foi salvo (só vai para a agenda ao tocar em "salvar")
+	let drafts = $state<Record<string, string>>({});
+	const dirty = (k: string) => drafts[k] !== undefined && drafts[k] !== (events[k] ? toLocal(events[k]) : '');
 	const toLocal = (t: number) => {
 		const d = new Date(t * 1000);
 		const p = (n: number) => String(n).padStart(2, '0');
@@ -106,6 +109,7 @@
 		try {
 			await api(`/scripts/${id}/events/${kind}`, { method: 'PUT', body: JSON.stringify({ start }) });
 			events[kind] = start;
+			delete drafts[kind];
 			say('na agenda ✓');
 		} catch (e) {
 			say((e as Error).message);
@@ -118,6 +122,7 @@
 		try {
 			await api(`/scripts/${id}/events/${kind}`, { method: 'DELETE' });
 			delete events[kind];
+			delete drafts[kind];
 			say('tirado da agenda');
 		} catch (e) {
 			say((e as Error).message);
@@ -363,13 +368,16 @@
 					<input
 						type="datetime-local"
 						class="when"
-						value={events[k] ? toLocal(events[k]) : ''}
-						onfocus={(e) => !e.currentTarget.value && (e.currentTarget.value = tomorrow9())}
-						onchange={(e) => setStep(k, e.currentTarget.value)}
+						value={drafts[k] ?? (events[k] ? toLocal(events[k]) : '')}
+						onfocus={(e) => !e.currentTarget.value && (drafts[k] = e.currentTarget.value = tomorrow9())}
+						oninput={(e) => (drafts[k] = e.currentTarget.value)}
+						onchange={(e) => (drafts[k] = e.currentTarget.value)}
 						disabled={stepBusy === k}
 						aria-label="Data: {n}"
 					/>
 					{#if stepBusy === k}<span class="meta">…</span>
+					{:else if dirty(k) && drafts[k]}<button class="save" onclick={() => setStep(k, drafts[k])}>salvar</button>
+					{:else if dirty(k)}<button class="link" onclick={() => delete drafts[k]}>desfazer</button>
 					{:else if events[k]}<button class="link" onclick={() => removeStep(k)}>tirar</button>
 					{:else}<span class="meta">—</span>{/if}
 				</div>
@@ -382,9 +390,9 @@
 			<a href={claudeUrl} target="_blank" rel="noopener">escrever com o Claude ↗</a>
 			<button onclick={copyPrompt}>copiar pedido p/ Claude</button>
 			{#if s.task_id}
-				<button onclick={() => onopentask(s!.task_id!)}>ver tarefa</button>
+				<button onclick={() => onopentask(s!.task_id!)}>ver lembrete</button>
 			{:else}
-				<button onclick={() => (sending = !sending)} class:on={sending}>virar tarefa</button>
+				<button onclick={() => (sending = !sending)} class:on={sending}>criar lembrete</button>
 			{/if}
 		</nav>
 
@@ -397,7 +405,7 @@
 
 		{#if sending}
 			<div class="box dest">
-				<p class="label">Criar tarefa com este roteiro na descrição:</p>
+				<p class="label">Cria uma tarefa só como lembrete, com o link para este roteiro. O texto continua só aqui: editar a tarefa não muda o roteiro.</p>
 				<button class="btn" onclick={() => toTask({})}>no inbox</button>
 				<p class="meta">ou direto num quadro:</p>
 				<Destination label="criar aqui" onconfirm={toTask} oncancel={() => (sending = false)} />
@@ -540,7 +548,7 @@
 	}
 	.step {
 		display: grid;
-		grid-template-columns: 150px 1fr 44px;
+		grid-template-columns: 150px 1fr 72px;
 		gap: 10px;
 		align-items: center;
 		padding: 4px 0;
@@ -557,6 +565,14 @@
 		min-width: 0;
 		font-family: var(--mono);
 		font-size: var(--t-sm);
+	}
+	.save {
+		background: var(--accent);
+		border: 0;
+		color: #fff;
+		padding: 6px 10px;
+		font-size: var(--t-sm);
+		cursor: pointer;
 	}
 	.step .link {
 		background: none;
