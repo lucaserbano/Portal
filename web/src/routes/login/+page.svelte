@@ -125,7 +125,7 @@
 		outline: none;
 	}
 	input:focus {
-		border-bottom: 2px solid #ff006f;
+		border-bottom: 2px solid #ff0006;
 		padding-bottom: 9px;
 	}
 	input:-webkit-autofill,
@@ -139,7 +139,7 @@
 		margin-top: 22px;
 		padding: 11px 26px;
 		border: 0;
-		background: #ff006f;
+		background: #ff0006;
 		color: #fff;
 		font-size: var(--t-sm);
 		cursor: pointer;
@@ -154,7 +154,7 @@
 	}
 	.err {
 		color: #fff;
-		background: #ff006f;
+		background: #ff0006;
 		padding: 6px 10px;
 		font-size: var(--t-sm);
 		justify-self: start;

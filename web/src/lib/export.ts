@@ -316,7 +316,7 @@ export async function scriptToPDF(sc: ScriptPdf) {
 	doc.line(M, y, W - M, y);
 	y += 16;
 
-	// corpo: linha toda em negrito vira título de seção; [imagem N] fica em magenta
+	// corpo: linha toda em negrito vira título de seção; [imagem N] fica em vermelho
 	const body = plain(sc.body_md.replace(/^\*\*(.+)\*\*\s*$/gm, '§§$1')).split('\n');
 	for (const raw of body) {
 		const line = raw.trimEnd();

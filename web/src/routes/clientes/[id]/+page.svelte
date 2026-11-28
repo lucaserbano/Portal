@@ -179,7 +179,7 @@
 		['brand_bg', 'plano de fundo', '#ffffff'],
 		['brand_section', 'fundo das perguntas', '#ffffff'],
 		['brand_question', 'texto das perguntas', '#000000'],
-		['brand_accent', 'destaque', '#ff006f']
+		['brand_accent', 'destaque', '#ff0006']
 	];
 	const normHex = (v: string) => {
 		const m = v.trim().replace(/^#?/, '#');

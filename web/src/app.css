@@ -1,26 +1,26 @@
 /* πύλη, sistema visual (identidade de 27/11/2026: ver referencias-identidade-pyle.md, fora do Git)
    Estrutura: grid suíço/Bauhaus, filetes de 1px, nada de sombra nem canto arredondado na interface.
-   Cor: preto e branco, com o magenta como única cor chapada (ação, estado ativo, alerta).
-   Ameixa, violeta, lavanda e rosa névoa só em fotos, brilhos e comprimidos.
+   Cor: preto e branco, com o vermelho como única cor chapada (ação, estado ativo, alerta).
+   Inferno, brasa, menta e creme só em fotos, brilhos e comprimidos.
    Tipo em 3 camadas: Commissioner pesada nos títulos, fina nos números grandes, rótulos na mesma fonte, com números tabulares (monoespaçada só para código). */
 
 :root {
 	--black: #000;
 	--white: #fff;
-	--grey: #8a8090; /* cinza puxado para o ameixa */
-	--grey-light: #e9e3e7;
-	--accent: #ff006f;
+	--grey: #8e8582; /* cinza puxado para o vermelho */
+	--grey-light: #ece5e3;
+	--accent: #ff0006;
 	/* cores de luz: só em fotos, brilhos e comprimidos, nunca em botões ou textos */
-	--ameixa: #560034;
-	--violeta: #710554;
-	--lavanda: #979ff0;
-	--nevoa: #ffcaf4;
+	--inferno: #9e1500;
+	--brasa: #c22000;
+	--menta: #02d7a4;
+	--creme: #fff9cc;
 
 	/* tons de apoio (trocam no modo noturno) */
 	--inactive: #c8c8c8;
 	--code-bg: #f4f4f4;
 	--soft: #444;
-	--select-bg: #ffe3ef;
+	--select-bg: #ffe0de;
 	--scrim: rgb(255 255 255 / 0.65);
 	color-scheme: light;
 
@@ -38,15 +38,15 @@
 	--t-xl: clamp(40px, 7vw, 96px);
 }
 
-/* Modo noturno: preto ↔ branco; cinza e magenta continuam iguais */
+/* Modo noturno: preto ↔ branco; cinza e vermelho continuam iguais */
 :root[data-theme='dark'] {
 	--black: #fff;
 	--white: #000;
-	--grey-light: #2a1f27;
-	--inactive: #4a3d46;
-	--code-bg: #160f14;
+	--grey-light: #2b1f1d;
+	--inactive: #4a3e3c;
+	--code-bg: #160f0e;
 	--soft: #bbb;
-	--select-bg: #3d0018;
+	--select-bg: #3d0605;
 	--scrim: rgb(0 0 0 / 0.65);
 	color-scheme: dark;
 }

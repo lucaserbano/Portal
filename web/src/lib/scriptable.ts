@@ -6,7 +6,7 @@ export function widgetScript(apiUrl: string, siteUrl: string) {
 // ajustado à largura da tela deste iPhone. Com isso: a foto sai na proporção certa e só entram as linhas que cabem.
 const API = ${JSON.stringify(apiUrl)};
 const SITE = ${JSON.stringify(siteUrl)};
-const PINK = new Color("#FF006F"), WHITE = Color.white(), GREY = new Color("#8C8C8C"), BLACK = Color.black();
+const PINK = new Color("#FF0006"), WHITE = Color.white(), GREY = new Color("#8C8C8C"), BLACK = Color.black();
 const SOFT = new Color("#BBBBBB"), DIM = new Color("#666666"), RULE = new Color("#FFFFFF", 0.22);
 
 let data;

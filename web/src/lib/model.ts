@@ -54,7 +54,7 @@ export const PRIORITY_LABEL: Record<Exclude<Priority, null>, string> = {
 	critico: 'Crítico'
 };
 
-// Cores de fundo do cartão: tons claros que não competem com o magenta.
+// Cores de fundo do cartão: tons claros que não competem com o vermelho.
 // No modo noturno cada uma tem um tom escuro próprio (o texto fica branco).
 export const CARD_COLORS = [
 	{ value: null, name: 'branco', dark: null },

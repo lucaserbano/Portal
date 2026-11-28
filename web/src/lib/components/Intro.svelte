@@ -25,7 +25,7 @@
 	}
 
 	// ---------- o símbolo, em unidades de 0 a 100 (a porta tem o centro em 50, 75) ----------
-	const MAG = '#FF006F';
+	const MAG = '#FF0006';
 	const DOOR = { x: 41, y: 56, w: 18, h: 38 };
 	const DC = { x: 50, y: 75 };
 

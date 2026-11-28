@@ -6,7 +6,7 @@ import type { Env } from './index';
 export const TZ = 'America/Sao_Paulo'; // fuso do usuário (horários sem fuso no iCloud)
 const ROOT = 'https://caldav.icloud.com';
 const pyleName = (env: Env) => env.PYLE_CALENDAR || 'πύλη'; // nos testes locais: outro calendário
-const PYLE_COLOR = '#FF006FFF';
+const PYLE_COLOR = '#FF0006FF';
 const TASK_UID = (id: string) => `pyle-task-${id}`;
 
 export type Cal = { href: string; name: string; color: string; pyle: boolean };

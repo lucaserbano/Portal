@@ -16,14 +16,14 @@ function page(o: { client: string; host: string; local: boolean; handle: string;
   h1{font-weight:400;font-size:56px;letter-spacing:-.03em;margin:0;line-height:1}
   p{margin:0}
   .meta{font:12px ui-monospace,Menlo,monospace;color:#808080}
-  b{color:#ff006f;font-weight:400}
+  b{color:#ff0006;font-weight:400}
   input{font:16px inherit;width:100%;box-sizing:border-box;padding:12px 0;border:0;border-bottom:1px solid #fff;background:none;color:#fff;outline:none}
-  input:focus{border-bottom:2px solid #ff006f}
+  input:focus{border-bottom:2px solid #ff0006}
   .row{display:flex;gap:10px}
   button{font:15px inherit;padding:12px 20px;border:1px solid #fff;background:none;color:#fff;cursor:pointer}
-  button.ok{background:#ff006f;border-color:#ff006f}
-  .err{color:#ff006f}
-  .warn{border-left:3px solid #ff006f;padding-left:10px}
+  button.ok{background:#ff0006;border-color:#ff0006}
+  .err{color:#ff0006}
+  .warn{border-left:3px solid #ff0006;padding-left:10px}
 </style></head><body><main>
   <h1>πύλη</h1>
   <p><b>${esc(o.client)}</b> quer acessar o seu portal: ler e criar tarefas, temas, roteiros e eventos.</p>
