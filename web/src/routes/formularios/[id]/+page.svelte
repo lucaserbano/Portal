@@ -623,7 +623,8 @@
 	.dot {
 		background: var(--accent);
 		color: #fff;
-		font: 700 10px/1 var(--mono);
+		font: 700 10px/1 var(--sans);
+		font-variant-numeric: tabular-nums;
 		padding: 3px 5px;
 	}
 	.saved {
@@ -793,7 +794,8 @@
 	}
 	.badge {
 		color: var(--accent);
-		font: 700 var(--t-xs) var(--mono);
+		font: 700 var(--t-xs) var(--sans);
+		font-variant-numeric: tabular-nums;
 	}
 	.resp dl {
 		display: grid;

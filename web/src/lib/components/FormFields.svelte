@@ -191,7 +191,8 @@
 		border: var(--rule);
 		margin-left: -1px;
 		cursor: pointer;
-		font-family: var(--mono);
+		font-family: var(--sans);
+		font-variant-numeric: tabular-nums;
 	}
 	.sc:first-child {
 		margin-left: 0;

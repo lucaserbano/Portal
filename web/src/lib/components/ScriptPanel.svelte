@@ -563,7 +563,8 @@
 		background: transparent;
 		padding: 6px 0;
 		min-width: 0;
-		font-family: var(--mono);
+		font-family: var(--sans);
+		font-variant-numeric: tabular-nums;
 		font-size: var(--t-sm);
 	}
 	.save {
@@ -674,7 +675,8 @@
 		align-content: start;
 	}
 	.n {
-		font: 700 var(--t-xs) var(--mono);
+		font: 700 var(--t-xs) var(--sans);
+		font-variant-numeric: tabular-nums;
 		color: var(--accent);
 	}
 	.ph {

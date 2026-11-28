@@ -198,7 +198,8 @@
 		border: 0;
 		background: none;
 		padding: 4px 2px;
-		font: 400 var(--t-xs) var(--mono);
+		font: 400 var(--t-xs) var(--sans);
+		font-variant-numeric: tabular-nums;
 		color: var(--inactive);
 		cursor: pointer;
 		min-width: 24px;

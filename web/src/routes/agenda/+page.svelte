@@ -516,7 +516,8 @@
 		color: var(--grey);
 	}
 	.chip {
-		font: 400 var(--t-xs) / 1 var(--mono);
+		font: 400 var(--t-xs) / 1 var(--sans);
+		font-variant-numeric: tabular-nums;
 		padding: 6px 8px;
 		border: 1px solid var(--c, var(--black));
 		color: var(--c, var(--black));
@@ -665,7 +666,8 @@
 	.ev1 .t {
 		color: var(--grey);
 		margin-right: 4px;
-		font-family: var(--mono);
+		font-family: var(--sans);
+		font-variant-numeric: tabular-nums;
 	}
 	.more {
 		border: 0;

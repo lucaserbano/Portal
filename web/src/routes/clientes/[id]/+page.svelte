@@ -874,7 +874,8 @@
 		opacity: 0.25;
 	}
 	.hex {
-		font-family: var(--mono);
+		font-family: var(--sans);
+		font-variant-numeric: tabular-nums;
 		text-transform: lowercase;
 	}
 	.logo {

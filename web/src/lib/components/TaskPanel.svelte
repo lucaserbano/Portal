@@ -993,7 +993,8 @@
 		margin-bottom: 6px;
 	}
 	.chip {
-		font: 400 var(--t-xs) / 1 var(--mono);
+		font: 400 var(--t-xs) / 1 var(--sans);
+		font-variant-numeric: tabular-nums;
 		padding: 5px 7px;
 		border: 1px solid var(--c, var(--black));
 		color: var(--c, var(--black));

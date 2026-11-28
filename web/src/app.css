@@ -2,7 +2,7 @@
    Estrutura: grid suíço/Bauhaus, filetes de 1px, nada de sombra nem canto arredondado na interface.
    Cor: preto e branco, com o magenta como única cor chapada (ação, estado ativo, alerta).
    Ameixa, violeta, lavanda e rosa névoa só em fotos, brilhos e comprimidos.
-   Tipo em 3 camadas: Commissioner pesada nos títulos, fina nos números grandes, monoespaçada nos rótulos. */
+   Tipo em 3 camadas: Commissioner pesada nos títulos, fina nos números grandes, rótulos na mesma fonte, com números tabulares (monoespaçada só para código). */
 
 :root {
 	--black: #000;
@@ -121,7 +121,8 @@ select {
 
 /* ---------- Tipografia utilitária ---------- */
 .meta {
-	font: 400 var(--t-xs) / 1.3 var(--mono);
+	font: 400 var(--t-xs) / 1.3 var(--sans);
+	font-variant-numeric: tabular-nums;
 	letter-spacing: 0.02em;
 	color: var(--grey);
 }

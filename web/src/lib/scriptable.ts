@@ -90,7 +90,7 @@ function line(x) {
   if (room < LINE) return false;
   room -= LINE;
   const s = w.addStack(); s.spacing = 5; s.centerAlignContent();
-  if (!small) { const a = s.addText(x.all_day ? "dia  " : hm(x.at)); a.font = Font.regularMonospacedSystemFont(FS - 1); a.textColor = x.late ? PINK : GREY; }
+  if (!small) { const a = s.addText(x.all_day ? "dia  " : hm(x.at)); a.font = Font.systemFont(FS - 1); a.textColor = x.late ? PINK : GREY; }
   // ordem: cliente/quadro › título › ação (no quadrado pequeno, sem o cliente)
   if (x.where && !small) { text(s, x.where, GREY); text(s, "›", DIM); }
   text(s, x.title, x.kind === "event" ? SOFT : WHITE);
@@ -133,7 +133,7 @@ if (data.error) {
 w.addSpacer();
 if (!tight) {
   const f = w.addText("atualizado " + new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }));
-  f.font = Font.regularMonospacedSystemFont(9); f.textColor = DIM; f.rightAlignText();
+  f.font = Font.systemFont(9); f.textColor = DIM; f.rightAlignText();
 }
 w.refreshAfterDate = new Date(Date.now() + 15 * 60 * 1000);
 

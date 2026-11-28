@@ -129,7 +129,8 @@
 		background: var(--white);
 		display: grid;
 		place-items: center;
-		font: 400 9px / 1 var(--mono);
+		font: 400 9px / 1 var(--sans);
+		font-variant-numeric: tabular-nums;
 		margin-left: -4px;
 	}
 	.check {
@@ -179,7 +180,8 @@
 		gap: 4px;
 	}
 	.lb {
-		font: 400 var(--t-xs) / 1 var(--mono);
+		font: 400 var(--t-xs) / 1 var(--sans);
+		font-variant-numeric: tabular-nums;
 		padding: 3px 5px;
 		border: 1px solid var(--c);
 		color: var(--c);
@@ -192,7 +194,8 @@
 		align-items: center;
 	}
 	.prio {
-		font: 400 var(--t-xs) / 1 var(--mono);
+		font: 400 var(--t-xs) / 1 var(--sans);
+		font-variant-numeric: tabular-nums;
 		padding: 3px 5px;
 		border: 1px solid var(--grey);
 		color: var(--grey);
