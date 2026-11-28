@@ -130,7 +130,9 @@
 	}
 	.bar {
 		align-items: baseline;
-		padding: 18px 0 14px;
+		/* no app do iPhone a página vai até debaixo da barra de status, onde o iOS põe um degradê:
+		   o menu começa abaixo dessa área */
+		padding: max(18px, calc(env(safe-area-inset-top, 0px) + 14px)) 0 14px;
 		border-bottom: var(--rule);
 		margin-bottom: calc(var(--gutter) * 1.5);
 	}

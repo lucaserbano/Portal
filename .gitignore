@@ -16,3 +16,6 @@ Referências Imagens Pyle/
 compilado-previa-manual-de-marca.svg
 *.svg.bak
 referencias-identidade-pyle.md
+
+# skills de terceiros (repositórios clonados, cada um com seu próprio Git)
+skills/

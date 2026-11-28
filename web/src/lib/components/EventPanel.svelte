@@ -252,7 +252,7 @@
 		display: flex;
 		justify-content: space-between;
 		align-items: center;
-		padding: 18px 0 12px;
+		padding: max(18px, calc(env(safe-area-inset-top, 0px) + 14px)) 0 12px;
 		border-bottom: var(--rule);
 	}
 	.cal {
