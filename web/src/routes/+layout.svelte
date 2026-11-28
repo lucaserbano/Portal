@@ -8,6 +8,7 @@
 	import type { LayoutProps } from './$types';
 	import Intro from '#lib/components/Intro.svelte';
 	import Symbol from '#lib/components/Symbol.svelte';
+	import { theme, setTheme } from '#lib/theme.svelte.ts';
 
 	let { children }: LayoutProps = $props();
 
@@ -56,14 +57,9 @@
 		if (boardsOpen && !(e.target as HTMLElement).closest('.qwrap')) boardsOpen = false;
 	}
 
-	let theme = $state(document.documentElement.dataset.theme ?? 'light');
-	function toggleTheme() {
-		theme = theme === 'dark' ? 'light' : 'dark';
-		document.documentElement.dataset.theme = theme;
-		localStorage.setItem('pyle.theme', theme);
-	}
+	const toggleTheme = () => setTheme(theme.v === 'dark' ? 'light' : 'dark');
 	$effect(() => {
-		document.querySelector('meta[name="theme-color"]')?.setAttribute('content', theme === 'dark' ? '#000000' : '#ffffff');
+		document.querySelector('meta[name="theme-color"]')?.setAttribute('content', theme.v === 'dark' ? '#000000' : '#ffffff');
 	});
 
 	async function logout() {
@@ -111,7 +107,7 @@
 			<span class="right">
 				<a class="out" href={resolve('/galeria')} class:on={active('/galeria')}>galeria</a>
 				<a class="out" href={resolve('/ajustes')} class:on={active('/ajustes')}>ajustes</a>
-				<button class="out" onclick={toggleTheme} aria-label="Alternar modo noturno">{theme === 'dark' ? 'dia' : 'noite'}</button>
+				<button class="out" onclick={toggleTheme} aria-label="Alternar modo noturno">{theme.v === 'dark' ? 'dia' : 'noite'}</button>
 				<button class="out" onclick={logout}>sair</button>
 			</span>
 		</div>

@@ -2,6 +2,7 @@
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { api, auth } from '#lib/api.ts';
+	import { theme, setTheme } from '#lib/theme.svelte.ts';
 
 	let username = $state('');
 	let password = $state('');
@@ -42,7 +43,10 @@
 	<div class="page content">
 		<div class="top">
 			<span>πύλη — portal</span>
-			<span class="meta">acesso restrito</span>
+			<span class="modo" role="group" aria-label="Modo da abertura e do portal">
+				<button type="button" class:on={theme.v === 'light'} aria-pressed={theme.v === 'light'} onclick={() => setTheme('light')}>dia</button>
+				<button type="button" class:on={theme.v === 'dark'} aria-pressed={theme.v === 'dark'} onclick={() => setTheme('dark')}>noite</button>
+			</span>
 		</div>
 
 		<form onsubmit={submit}>
@@ -99,8 +103,25 @@
 		padding: 18px 0 14px;
 		font-size: var(--t-sm);
 	}
-	.top .meta {
+	/* dia/noite: escolhe como a abertura e o portal aparecem depois de entrar */
+	.modo {
+		display: flex;
+		gap: 14px;
+	}
+	.modo button {
+		margin: 0;
+		padding: 0 0 3px;
+		background: none;
 		color: rgb(255 255 255 / 0.7);
+		border-bottom: 2px solid transparent;
+	}
+	.modo button.on {
+		color: #fff;
+		border-bottom-color: #ff0006;
+	}
+	.modo button:not(:disabled):hover {
+		background: none;
+		color: #fff;
 	}
 	form {
 		align-self: center;

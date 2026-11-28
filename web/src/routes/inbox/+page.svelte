@@ -1,4 +1,5 @@
 <script lang="ts">
+	import PageBg from '#lib/components/PageBg.svelte';
 	import { api } from '#lib/api.ts';
 	import { fmtShort, type Task } from '#lib/model.ts';
 	import Doodle from '#lib/components/Doodle.svelte';
@@ -66,6 +67,8 @@
 		}
 	}
 </script>
+
+<PageBg kind="menta" />
 
 <section class="grid head">
 	<h1 class="title-lg">Inbox</h1>
@@ -228,5 +231,19 @@
 	}
 	.err {
 		color: var(--accent);
+	}
+	/* sobre o degradê de fundo: a entrada, a barra e a lista ficam em blocos lisos */
+	.quick,
+	.bar,
+	.list,
+	.empty {
+		background: var(--white);
+		padding-inline: 14px;
+	}
+	.empty {
+		padding-block: 14px;
+	}
+	.head .meta {
+		color: var(--black); /* sobre o degradê o cinza some */
 	}
 </style>

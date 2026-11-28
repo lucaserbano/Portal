@@ -1,4 +1,5 @@
 <script lang="ts">
+	import PageBg from '#lib/components/PageBg.svelte';
 	import { resolve } from '$app/paths';
 	import { api } from '#lib/api.ts';
 	import Doodle from '#lib/components/Doodle.svelte';
@@ -23,6 +24,8 @@
 		month: 'long'
 	});
 </script>
+
+<PageBg kind="comprimidos" />
 
 <section class="grid head">
 	<h1 class="title-lg">Quadros</h1>
@@ -68,6 +71,7 @@
 		grid-column: 1 / span 8;
 	}
 	.date {
+		color: var(--black); /* sobre os comprimidos o cinza some */
 		grid-column: 9 / span 4;
 		justify-self: end;
 	}

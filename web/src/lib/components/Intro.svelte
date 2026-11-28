@@ -4,6 +4,7 @@
 	// e seguimos por um túnel de portas (só o contorno) que desce e sobe uma vez; na última, a página aparece.
 	// Canvas puro, cerca de 2,9 s. Toque/clique pula. Com "reduzir movimento", só um esmaecer rápido.
 	import { onMount } from 'svelte';
+	import { theme } from '#lib/theme.svelte.ts';
 
 	let { ondone }: { ondone: () => void } = $props();
 
@@ -26,6 +27,8 @@
 
 	// ---------- o símbolo, em unidades de 0 a 100 (a porta tem o centro em 50, 75) ----------
 	const MAG = '#FF0006';
+	// fundo conforme o modo escolhido (no login ou no menu)
+	const BG = theme.v === 'light' ? '#fff' : '#000';
 	const DOOR = { x: 41, y: 56, w: 18, h: 38 };
 	const DC = { x: 50, y: 75 };
 
@@ -121,7 +124,7 @@
 		const frame = (now: number) => {
 			const t = (now - t0) / 1000;
 			ctx.globalAlpha = 1;
-			ctx.fillStyle = '#000';
+			ctx.fillStyle = BG;
 			ctx.fillRect(0, 0, W, H);
 			CX = W / 2;
 			CY = H / 2;
@@ -193,7 +196,7 @@
 </script>
 
 {#if !gone}
-	<div class="intro" class:fading class:reduce onclick={finish} onkeydown={(e) => e.key === 'Escape' && finish()} role="presentation">
+	<div class="intro" style:background={BG} class:fading class:reduce onclick={finish} onkeydown={(e) => e.key === 'Escape' && finish()} role="presentation">
 		<canvas bind:this={canvas} aria-hidden="true"></canvas>
 		<span class="sr-only">πύλη</span>
 	</div>

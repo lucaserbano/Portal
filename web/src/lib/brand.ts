@@ -21,5 +21,19 @@ export function applyBrand(b: Brand | null | undefined) {
 	set('--q-bg', b.section);
 	set('--q-text', b.question);
 	if (b.section) root.style.setProperty('--q-pad', '18px');
+	// texto sobre o destaque: preto ou branco, o que tiver mais contraste com a cor escolhida
+	if (b.accent) root.style.setProperty('--on-accent', onColor(b.accent));
 	if (b.bg) document.querySelector('meta[name="theme-color"]')?.setAttribute('content', b.bg);
+}
+
+/** Preto ou branco, o que contrasta mais com a cor (luminância relativa da WCAG) */
+export function onColor(hex: string) {
+	let h = hex.replace('#', '');
+	if (h.length === 3) h = [...h].map((c) => c + c).join('');
+	const lin = (i: number) => {
+		const c = parseInt(h.slice(i, i + 2), 16) / 255;
+		return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+	};
+	const L = 0.2126 * lin(0) + 0.7152 * lin(2) + 0.0722 * lin(4);
+	return (L + 0.05) / 0.05 > 1.05 / (L + 0.05) ? '#000000' : '#ffffff';
 }

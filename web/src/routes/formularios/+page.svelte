@@ -1,4 +1,5 @@
 <script lang="ts">
+	import PageBg from '#lib/components/PageBg.svelte';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { api } from '#lib/api.ts';
@@ -46,6 +47,8 @@
 		}
 	}
 </script>
+
+<PageBg kind="noite" />
 
 <section class="grid head">
 	<h1 class="title-xl ttl">Formulários</h1>
@@ -147,6 +150,7 @@
 		border-left: var(--rule);
 	}
 	.card {
+		background: var(--white); /* liso sobre o fundo da página */
 		display: grid;
 		gap: 6px;
 		padding: 16px;

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import PageBg from '#lib/components/PageBg.svelte';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { api } from '#lib/api.ts';
@@ -21,6 +22,8 @@
 		goto(resolve('/clientes/[id]', { id }) + '?novo=1');
 	}
 </script>
+
+<PageBg kind="letreiro" />
 
 <section class="grid head">
 	<h1 class="title-xl ttl">Clientes</h1>
@@ -60,6 +63,9 @@
 {:else if !error}
 	<p class="meta">carregando…</p>
 {/if}
+
+<!-- espaço no fim da página para o letreiro do fundo aparecer inteiro -->
+<div class="respiro" aria-hidden="true"></div>
 
 <style>
 	.head {
@@ -103,6 +109,7 @@
 		border-left: var(--rule);
 	}
 	.card {
+		background: var(--white); /* liso sobre o fundo da página */
 		display: grid;
 		align-content: start;
 		gap: 6px;
@@ -144,5 +151,8 @@
 		.title-xl {
 			font-size: clamp(40px, 12vw, 64px);
 		}
+	}
+	.respiro {
+		height: min(45vw, 560px);
 	}
 </style>

@@ -60,7 +60,13 @@
 </article>
 
 <style>
+	/* dentro do bloco da tarefa tudo usa a cor do texto das perguntas (--ink), que a marca escolhe
+	   para contrastar com o fundo das perguntas; sem marca, é a cor normal do texto */
 	.pt {
+		--ink: var(--q-text, var(--black));
+		--ink-soft: color-mix(in srgb, var(--ink) 62%, transparent);
+		--ink-line: color-mix(in srgb, var(--ink) 18%, transparent);
+		color: var(--ink);
 		display: grid;
 		gap: 18px;
 		border-top: 2px solid var(--black);
@@ -68,10 +74,6 @@
 		background: var(--q-bg, transparent);
 		padding-inline: var(--q-pad, 0);
 		padding-bottom: var(--q-pad, 0);
-	}
-	.pt h1,
-	.pt h2 {
-		color: var(--q-text, inherit);
 	}
 	.pt.big {
 		border-top: 0;
@@ -85,21 +87,26 @@
 		font-size: clamp(36px, 9vw, 80px);
 		overflow-wrap: anywhere;
 	}
+	.pt .meta {
+		color: var(--ink-soft);
+	}
 	header .meta {
 		display: flex;
 		flex-wrap: wrap;
 		gap: 6px 14px;
 		align-items: center;
 	}
+	/* etapa em andamento: retângulo na cor de destaque; concluída: só o contorno */
 	.stage {
-		border: 1px solid var(--black);
-		color: var(--black);
+		background: var(--accent);
+		border: 1px solid var(--accent);
+		color: var(--on-accent, #fff);
 		padding: 3px 7px;
 	}
 	.stage.fin {
-		background: var(--accent);
-		border-color: var(--accent);
-		color: #fff;
+		background: transparent;
+		border-color: var(--ink);
+		color: var(--ink);
 	}
 	.prog {
 		display: flex;
@@ -109,7 +116,7 @@
 	.bar {
 		flex: 1;
 		height: 8px;
-		background: var(--grey-light);
+		background: var(--ink-line);
 	}
 	.bar span {
 		display: block;
@@ -132,7 +139,7 @@
 		gap: var(--gutter);
 	}
 	h3 {
-		border-bottom: var(--rule);
+		border-bottom: 1px solid var(--ink);
 		padding-bottom: 6px;
 		margin: 0 0 6px;
 		font-weight: 500;
@@ -147,17 +154,17 @@
 		display: grid;
 		grid-template-columns: 22px 1fr;
 		padding: 7px 0;
-		border-bottom: var(--rule-soft);
+		border-bottom: 1px solid var(--ink-line);
 		font-size: var(--t-md);
 	}
 	li.ok {
-		color: var(--grey);
+		color: var(--ink-soft);
 	}
 	.ok .mk {
 		color: var(--accent);
 	}
-	.upd {
-		color: var(--grey);
+	.pt .upd {
+		color: var(--ink-soft);
 	}
 	@media (max-width: 600px) {
 		.cols {
